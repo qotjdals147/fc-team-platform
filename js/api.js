@@ -13,10 +13,13 @@ export async function apiHealth() {
   if (!isBackendReady()) {
     return { ok: false, reason: 'SUPABASE 미설정 (config.js)' };
   }
-  const res = await fetch(`${PLATFORM.SUPABASE_URL}/rest/v1/`, {
+  // PostgREST 루트(/rest/v1/)는 401이 뜨는 케이스가 있어
+  // 실제 테이블을 "1줄만" 조회해서 연결 여부를 확인한다.
+  const res = await fetch(`${PLATFORM.SUPABASE_URL}/rest/v1/profiles?select=id&limit=1`, {
     headers: {
       apikey: PLATFORM.SUPABASE_KEY,
       Authorization: `Bearer ${PLATFORM.SUPABASE_KEY}`,
+      Accept: 'application/json',
     },
   });
   return { ok: res.ok, status: res.status };
