@@ -1,0 +1,3 @@
+-- 이 파일은 platform/setup/schema-v1.sql 로 대체되었습니다.
+-- 실행: Supabase SQL Editor → platform/setup/schema-v1.sql
+-- 가이드: setup/SUPABASE_GUIDE_Platform.md

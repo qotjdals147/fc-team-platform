@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>FC 플랫폼</title>
+  <link rel="stylesheet" href="css/platform.css">
+</head>
+<body>
+  <div class="platform-shell">
+    <aside class="ad-rail ad-rail--left" id="adRailLeft" data-ad-slot="AD_RAIL_LEFT" aria-hidden="true"></aside>
+
+    <div class="app">
+      <header class="header">
+        <a href="index.html" class="header__logo">FC 플랫폼</a>
+        <div class="header__actions">
+          <button type="button" class="notif-bell" id="notifBell" aria-label="알림">
+            🔔
+            <span class="notif-badge" id="notifBadge" hidden>0</span>
+          </button>
+        </div>
+      </header>
+
+      <div id="notifHost"></div>
+
+      <main class="main" id="main"></main>
+
+      <nav class="bottom-nav" aria-label="플랫폼 메뉴">
+        <button type="button" class="nav-tab is-active" data-tab="home">홈</button>
+        <button type="button" class="nav-tab" data-tab="matching">매칭</button>
+        <button type="button" class="nav-tab" data-tab="clubs">내 구단</button>
+        <button type="button" class="nav-tab" data-tab="profile">내 정보</button>
+      </nav>
+    </div>
+
+    <aside class="ad-rail ad-rail--right" id="adRailRight" data-ad-slot="AD_RAIL_RIGHT" aria-hidden="true"></aside>
+  </div>
+
+  <script type="module" src="js/lobby.js"></script>
+</body>
+</html>
