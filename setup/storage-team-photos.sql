@@ -1,3 +1,4 @@
+-- Supabase Query name: platform-storage-team-photos
 -- FC 플랫폼 Storage — team-photos 버킷 RLS (별도 Supabase 프로젝트)
 -- 버킷: team-photos (Public) — 대시보드에서 먼저 생성
 -- 경로: {club_id}/{filename}  (FC 제로 A안 fc-zero/ 와 구분)

@@ -1,76 +1,74 @@
-/** §5-2 알림함 — 목 데이터 (추후 Supabase notifications 연동) */
+/** §5-2 알림함 — Supabase notifications 연동 */
 
-const STORE_KEY = 'fc_platform_notifications';
+import { getUserId } from './auth.js';
+import {
+  apiLoadNotifications,
+  apiMarkNotificationRead,
+  apiDeleteNotification,
+  isBackendReady,
+} from './api.js';
 
-const seed = () => [
-  {
-    id: '1',
-    type: 'invite',
-    title: '구단 초대',
-    body: 'FC 블루에서 초대가 왔습니다.',
-    createdAt: Date.now() - 3600000,
-    readAt: null,
-    deletedAt: null,
-    payload: { tab: 'profile' },
-  },
-  {
-    id: '2',
-    type: 'match_result',
-    title: '매칭 미성사',
-    body: '서울 FC · 6/20 14:00 경기 신청이 다른 팀과 확정되어 성사되지 않았습니다.',
-    createdAt: Date.now() - 7200000,
-    readAt: null,
-    deletedAt: null,
-    payload: { tab: 'matching', postId: 'demo' },
-  },
-  {
-    id: '3',
-    type: 'match_apply',
-    title: '매칭 신청',
-    body: '강남 유나이티드가 매칭 공고에 신청했습니다.',
-    createdAt: Date.now() - 86400000,
-    readAt: Date.now() - 80000000,
-    deletedAt: null,
-    payload: { tab: 'matching' },
-  },
-];
+/** @type {Array<{id:string,type:string,title:string,body:string,createdAt:number,readAt:number|null,deletedAt:number|null,payload:object}>} */
+let cache = [];
 
-function load() {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (_) { /* ignore */ }
-  const items = seed();
-  save(items);
-  return items;
+function rowToItem(r) {
+  return {
+    id: String(r.id),
+    type: r.type,
+    title: r.title,
+    body: r.body || '',
+    createdAt: new Date(r.created_at).getTime(),
+    readAt: r.read_at ? new Date(r.read_at).getTime() : null,
+    deletedAt: r.deleted_at ? new Date(r.deleted_at).getTime() : null,
+    payload: r.payload || {},
+  };
 }
 
-function save(items) {
-  localStorage.setItem(STORE_KEY, JSON.stringify(items));
+export async function refreshNotifications() {
+  const uid = getUserId();
+  if (!uid || !isBackendReady()) {
+    cache = [];
+    return cache;
+  }
+  try {
+    const rows = await apiLoadNotifications(uid);
+    cache = (rows || []).map(rowToItem);
+  } catch {
+    cache = [];
+  }
+  return cache;
 }
 
 export function getNotifications() {
-  return load().filter((n) => !n.deletedAt);
+  return cache.filter((n) => !n.deletedAt);
 }
 
 export function unreadCount() {
   return getNotifications().filter((n) => !n.readAt).length;
 }
 
-export function markRead(id) {
-  const items = load();
-  const n = items.find((x) => x.id === id);
+export async function markRead(id) {
+  const uid = getUserId();
+  const n = cache.find((x) => x.id === id);
   if (n && !n.readAt) n.readAt = Date.now();
-  save(items);
+  if (uid && isBackendReady()) {
+    try {
+      await apiMarkNotificationRead(id, uid);
+    } catch {
+      /* keep optimistic UI */
+    }
+  }
 }
 
-export function removeNotification(id) {
-  const items = load();
-  const n = items.find((x) => x.id === id);
+export async function removeNotification(id) {
+  const uid = getUserId();
+  const n = cache.find((x) => x.id === id);
   if (n) n.deletedAt = Date.now();
-  save(items);
-}
-
-export function resetDemoNotifications() {
-  localStorage.removeItem(STORE_KEY);
+  if (uid && isBackendReady()) {
+    try {
+      await apiDeleteNotification(id, uid);
+    } catch {
+      /* keep optimistic UI */
+    }
+  }
 }

@@ -68,6 +68,24 @@ body {
   gap: 8px;
 }
 
+/* simple form */
+.form-row { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; }
+.form-label { font-size: 0.9rem; color: var(--muted); }
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  font-size: 0.95rem;
+}
+.btn-row { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.form-hint { font-size: 0.8rem; color: var(--muted); }
+.page-warn { color: var(--danger); font-size: 0.9rem; margin-top: 8px; }
+.legal-hint { font-size: 0.75rem; color: var(--muted); margin: 16px 0; line-height: 1.4; }
+.tag { display: inline-block; font-size: 0.75rem; color: var(--muted); background: var(--bg); padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+.match-card--demo { opacity: 0.85; border-style: dashed; }
+
 .notif-bell {
   position: relative;
   width: 40px;

@@ -1,3 +1,4 @@
+-- Supabase Query name: platform-schema-v1
 -- FC 플랫폼 DB v1 — 별도 Supabase 프로젝트에서 실행 (R37)
 -- 정본 가이드: setup/SUPABASE_GUIDE_Platform.md
 -- FC 제로 운영 DB(ajcidqsjpkzupxeizbyp)에는 실행하지 마세요.
@@ -135,6 +136,9 @@ CREATE TABLE IF NOT EXISTS public.matching_applications (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (post_id, applicant_club_id)
 );
+
+ALTER TABLE public.matching_posts
+  DROP CONSTRAINT IF EXISTS matching_posts_matched_application_fkey;
 
 ALTER TABLE public.matching_posts
   ADD CONSTRAINT matching_posts_matched_application_fkey

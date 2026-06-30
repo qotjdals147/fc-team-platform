@@ -1,40 +1,48 @@
-# FC 플랫폼 (v1 스캐폴드)
+# FC 플랫폼 (v0.2.0)
 
-FC 제로(`../`)와 **분리**된 사업 플랫폼 프론트엔드 초안입니다. (R37)
+FC 제로(`../`)와 **분리**된 사업 플랫폼 프론트엔드입니다. (R37)
 
-## 현재 포함
+## 현재 포함 (v0.2)
 
-- 로비 4탭 + **PC 3단 셸**(좌·우 광고 레일) · 모바일 전폭 (§5-3)
-- 알림 패널 + 미읽음 뱃지 (§5-2, 목 데이터)
-- 광고 슬롯 자리 표시 (§7.3, 개발 모드)
-- 구단 홈 스텁: `club/index.html` (새 탭 연동 UI09)
+- 로비 4탭 + PC 3단 셸 (§5-3)
+- **이메일 로그인/회원가입** (`auth.js`)
+- **profiles** 조회 · **플랫폼 ID** 1회 설정 (M02)
+- **내 구단** 목록 · **구단 만들기** (`rpc/create_club`)
+- **알림** Supabase `notifications` 연동 (§5-2)
+- 매칭 탭 — 로그인 게이트 + UI 스텁 (DB 연동 다음)
+- 구단 홈 스텁: `club/index.html`
 
-## DB (별도 Supabase)
+## Supabase 설정 (필수 순서)
 
-| 파일 | 용도 |
-|------|------|
-| **`../setup/SUPABASE_GUIDE_Platform.md`** | 플랫폼 프로젝트 생성·7단계·RLS |
-| `setup/schema-v1.sql` | v1 SQL (실행용) |
-| `setup/storage-team-photos.sql` | Storage RLS (B안) |
+1. `setup/schema-v1.sql`
+2. **`setup/rpc-create-club.sql`** ← 구단 만들기 없으면 실패
+3. Email Auth ON · Exposed tables (가이드 §3)
 
-1. Supabase **새 프로젝트** 생성 (FC 제로 DB와 분리)
-2. SQL Editor → `schema-v1.sql` 실행
-3. `js/config.js`에 URL · anon key
+정본: **`../setup/SUPABASE_GUIDE_Platform.md`**
+
+## 배포
+
+| | |
+|--|--|
+| GitHub | `fc-team-platform` |
+| Pages 로비 | `https://qotjdals147.github.io/fc-team-platform/` |
+
+Project: `rdscgnvseplwlftjixom` (FOOTBALL_SITE_PLATFORM) · `js/config.js`
 
 ## 아직 없음
 
-- config.js 실제 KEY 연동
-- Auth · REST 연동 (`api.js` 스텁만)
-- FC 제로 클라이언트 `team_id` 포크
+- matching_posts CRUD
+- FC 제로 클라이언트 `team_id` 포크 (`club/`)
+- 본인인증 API · Pro 결제
+- RLS 정책 강화 (파일럿은 allow-all)
 
 ## 로컬 실행
 
 ```bash
 cd platform
 npx --yes serve .
-# 또는 VS Code Live Server — platform/index.html
 ```
 
 ## 문서
 
-- `../BUSINESS_VISION.md` §5-1, §5-2, §7.2, §7.3
+- `../docs/BUSINESS_VISION.md` §5-1, §15, §17, §19, §20
