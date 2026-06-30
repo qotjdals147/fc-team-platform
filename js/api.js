@@ -114,6 +114,22 @@ export async function apiCreateClub({ slug, name, region }) {
   });
 }
 
+export async function apiGetClubBySlug(slug) {
+  const rows = await apiFetch(
+    `clubs?slug=eq.${encodeURIComponent(slug)}&select=id,slug,name,region,team_id`,
+    { requireAuth: true },
+  );
+  return rows?.[0] || null;
+}
+
+export async function apiGetMyClubRole(userId, clubId) {
+  const rows = await apiFetch(
+    `club_members?user_id=eq.${userId}&club_id=eq.${clubId}&status=eq.active&select=role`,
+    { requireAuth: true },
+  );
+  return rows?.[0]?.role || null;
+}
+
 // ── notifications (§5-2) ──
 
 export async function apiLoadNotifications(userId) {

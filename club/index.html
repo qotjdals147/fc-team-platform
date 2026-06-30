@@ -1,27 +1,3379 @@
+
+
+
+
+
+
+
+
 <!DOCTYPE html>
+
+
+
+
+
+
+
 <html lang="ko">
+
+
+
+
+
+
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>구단 홈 (스텁)</title>
-  <link rel="stylesheet" href="../css/platform.css">
-  <style>
-    .club-stub { max-width: 480px; margin: 0 auto; padding: 24px 16px; }
-    .club-stub h1 { font-size: 1.25rem; }
-    .club-stub code { background: #e5e7eb; padding: 2px 6px; border-radius: 4px; }
-  </style>
+
+<!-- 관리자/총무 전용 요소 즉시 숨김 (JS/CSS 로드 전 깜빡임 방지) -->
+
+<style>body:not(.is-admin) .admin-only{display:none!important}body:not(.is-treasurer) .treasurer-only{display:none!important}</style>
+
+
+
+
+
+
+
+<meta charset="UTF-8">
+
+
+
+
+
+
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+
+
+
+
+
+
+<title>구단 홈 | FC 플랫폼</title>
+
+
+
+
+
+
+
+<link rel="stylesheet" href="style.css?v=1">
+
+
+
+
+
+
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+
+
+
+
+
+
+
 </head>
+
+
+
+
+
+
+
 <body>
-  <div class="club-stub">
-    <p><a href="../index.html" target="_self">← 플랫폼으로</a></p>
-    <h1 id="clubTitle">구단 홈</h1>
-    <p class="page-muted">FC 제로 클라이언트를 <code>team_id</code> 분리해 이 경로에 연결할 예정입니다. (UI09 새 탭)</p>
-    <p class="page-muted">알림은 로비에서만 확인합니다. (§5-2)</p>
+
+
+
+
+
+
+
+<div id="app">
+
+
+
+
+
+
+
+<div id="syncBar" class="sync-bar loading">
+
+
+
+
+
+
+
+  <span id="syncInfo" class="sync-info admin-only">
+
+
+
+
+
+
+
+    <span id="syncDot" class="sync-dot"></span>
+
+
+
+
+
+
+
+    <span id="syncText">데이터 초기화 중...</span>
+
+
+
+
+
+
+
+  </span>
+
+
+
+
+
+
+
+  <div class="sync-bar-actions">
+    <button type="button" id="treasurerToggleBtn" class="btn-treasurer-lock" onclick="toggleTreasurerMode()" title="총무 모드 진입">&#x1F4B0;</button>
+    <button type="button" id="adminToggleBtn" class="btn-admin-lock" onclick="toggleAdminMode()" title="관리자 모드">&#x1F512;</button>
   </div>
-  <script>
-    const slug = new URLSearchParams(location.search).get('slug') || 'demo';
-    document.getElementById('clubTitle').textContent = '구단 홈 — ' + slug;
-    document.title = slug + ' | FC 플랫폼';
-  </script>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="tab-bar">
+
+
+
+
+
+
+
+  <button class="tab-btn active" onclick="switchTab('home')"><i class="ti ti-home"></i>홈</button>
+
+
+
+
+
+
+
+  <button class="tab-btn" onclick="switchTab('roster')"><i class="ti ti-users"></i>명단</button>
+
+
+
+
+
+
+
+  <button class="tab-btn" onclick="switchTab('formation')"><i class="ti ti-layout-grid"></i>포메</button>
+
+
+
+
+
+
+
+  <button class="tab-btn" onclick="switchTab('records')"><i class="ti ti-trophy"></i>경기</button>
+
+
+
+
+
+
+
+  <button class="tab-btn admin-only" id="statsTabBtn" onclick="switchTab('stats')"><i class="ti ti-chart-bar"></i>통계</button>
+  <button class="tab-btn treasurer-only" id="treasurerTabBtn" onclick="switchTab('treasurer')" style="display:none"><i class="ti ti-wallet"></i>총무</button>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="tab-home" class="tab-panel active">
+
+
+
+
+
+
+
+  <div class="home-scroll">
+
+
+
+
+
+
+
+    <div class="home-photo-wrap" id="homePhotoWrap">
+
+
+
+
+
+
+
+      <img id="homePhoto" class="home-photo" alt="팀 사진" style="display:none">
+
+
+
+
+
+
+
+      <div id="homePhotoPlaceholder" class="home-photo-placeholder">
+
+
+
+
+
+
+
+        <i class="ti ti-photo"></i>
+
+
+
+
+
+
+
+        <span>팀 사진을 등록하세요</span>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+      <button type="button" class="btn-photo-change admin-only" onclick="openPhotoUrlModal()"><i class="ti ti-link"></i> 사진 변경</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="home-team-row">
+
+
+
+
+
+
+
+      <h2 class="home-team-name" id="homeTeamName">우리 FC</h2>
+
+
+
+
+
+
+
+      <button type="button" class="btn-team-edit admin-only" onclick="editTeamName()" title="팀 이름 수정"><i class="ti ti-pencil"></i></button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+        <div class="home-quick-actions">
+      <button type="button" class="home-quick-btn" onclick="openScheduleModal()"><i class="ti ti-calendar-event"></i> 경기 일정</button>
+      <button type="button" class="home-quick-btn home-quick-btn-rules" onclick="openNoticeModal()"><i class="ti ti-book-2"></i> 회칙 및 사이트 소개</button>
+    </div><div class="home-members">
+
+
+
+
+
+
+
+      <div class="home-members-title">클럽원 <span id="homeMemberCount"></span></div>
+
+
+
+
+
+
+
+      <div class="home-member-grid" id="homeMemberGrid"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="tab-roster" class="tab-panel">
+
+
+
+
+
+
+
+  <div class="section-header">
+
+
+
+
+
+
+
+    <h2>선수 명단</h2>
+
+
+
+
+
+
+
+    <div class="header-btns">
+
+
+
+
+
+
+
+      <button class="btn-sort" onclick="sortByPosition()"><i class="ti ti-arrows-sort"></i> 포지션순</button>
+
+
+
+
+
+
+
+      <button class="btn-add admin-only" onclick="openAddModal()"><i class="ti ti-plus"></i> 추가</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="player-list" id="playerList"></div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="tab-formation" class="tab-panel">
+
+
+
+
+
+
+
+  <div class="present-bar">
+
+
+
+
+
+
+
+    <div class="formation-view-label" id="formationViewLabel"></div>
+
+
+
+
+
+
+
+    <button id="btnPresent" class="btn-present admin-only" onclick="togglePresentMode()" title="프레젠테이션 시작">&#x1F5A5;&#xFE0F; 발표</button>
+
+
+
+
+
+
+
+    <button id="btnPresentPanel" class="btn-pp-toggle admin-only" onclick="togglePresentPanel()" title="&#xD328;&#xB110; &#xC5F4;&#xAE30;/&#xB2EB;&#xAE30;">&#x2699;&#xFE0F;</button>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="formation-toolbar admin-only">
+
+
+
+
+
+
+
+    <label>포메이션</label>
+
+
+
+
+
+
+
+    <select class="formation-select" id="formationSelect">
+
+
+
+
+
+
+
+      <option value="">포메이션 선택</option>
+
+
+
+
+
+
+
+      <option value="4-3-3">4-3-3</option>
+
+
+
+
+
+
+
+      <option value="4-4-2">4-4-2</option>
+
+
+
+
+
+
+
+      <option value="4-2-3-1">4-2-3-1</option>
+
+
+
+
+
+
+
+      <option value="3-4-3">3-4-3</option>
+
+
+
+
+
+
+
+      <option value="3-5-2">3-5-2</option>
+
+
+
+
+
+
+
+      <option value="5-3-2">5-3-2</option>
+
+
+
+
+
+
+
+      <option value="5-4-1">5-4-1</option>
+
+
+
+
+
+
+
+    </select>
+
+
+
+
+
+
+
+    <button class="btn-apply" onclick="applyFormation()">자동 배치</button>
+
+
+
+
+
+
+
+    <button class="btn-save-field" onclick="saveFormation()"><i class="ti ti-device-floppy"></i> 저장</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <button class="btn-reset-field" onclick="clearField()">초기화</button>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="quarter-bar" id="quarterBar">
+
+
+
+
+
+
+
+
+    <span class="quarter-bar-label">&#xCFFC;&#xD130;</span>
+
+
+
+
+
+
+
+
+    <div class="quarter-cols">
+
+
+
+
+
+
+
+
+      <div class="quarter-col">
+
+
+
+
+
+
+
+
+        <button class="quarter-btn" id="q1btn" onclick="switchQuarter(1)">1Q</button>
+
+
+
+
+
+
+
+
+        <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="qc1btn" onclick="copyQuarterForward(1)" title="1Q &#x2192; 2Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+      <div class="quarter-col">
+
+
+
+
+
+
+
+
+        <button class="quarter-btn" id="q2btn" onclick="switchQuarter(2)">2Q</button>
+
+
+
+
+
+
+
+
+        <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="qc2btn" onclick="copyQuarterForward(2)" title="2Q &#x2192; 3Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+      <div class="quarter-col">
+
+
+
+
+
+
+
+
+        <button class="quarter-btn" id="q3btn" onclick="switchQuarter(3)">3Q</button>
+
+
+
+
+
+
+
+
+        <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="qc3btn" onclick="copyQuarterForward(3)" title="3Q &#x2192; 4Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+      <div class="quarter-col">
+
+
+
+
+
+
+
+
+        <button class="quarter-btn" id="q4btn" onclick="switchQuarter(4)">4Q</button>
+
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+    <button class="avail-btn admin-only" id="btnAvail" onclick="toggleAvailFilter()" title="&#xC624;&#xB298; &#xCC38;&#xC804; &#xBA64;&#xBC84; &#xD544;&#xD130;">&#x1F465; &#xC624;&#xB298; &#xBA64;&#xBC84;</button>
+
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="avail-panel admin-only" id="availPanel" style="display:none"></div>
+
+
+
+
+
+
+
+  <div class="formation-saves-panel admin-only" id="formationSavesPanel" style="display:none">
+
+
+
+
+
+
+
+    <h4><i class="ti ti-bookmark"></i> 저장된 포메이션</h4>
+
+
+
+
+
+
+
+    <div class="fsave-list" id="formationSavesList"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="field-wrap" id="fieldWrap">
+
+    <div class="field-inner" id="fieldInner">
+
+      <div id="presentQuarterBtns" class="present-quarter-btns">
+
+
+
+
+
+
+
+
+        <div class="quarter-col">
+
+
+
+
+
+
+
+
+          <button class="quarter-btn" id="pq1btn" onclick="switchQuarter(1)">1Q</button>
+
+
+
+
+
+
+
+
+          <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="pqc1btn" onclick="copyQuarterForward(1)" title="1Q &#x2192; 2Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+        <div class="quarter-col">
+
+
+
+
+
+
+
+
+          <button class="quarter-btn" id="pq2btn" onclick="switchQuarter(2)">2Q</button>
+
+
+
+
+
+
+
+
+          <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="pqc2btn" onclick="copyQuarterForward(2)" title="2Q &#x2192; 3Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+        <div class="quarter-col">
+
+
+
+
+
+
+
+
+          <button class="quarter-btn" id="pq3btn" onclick="switchQuarter(3)">3Q</button>
+
+
+
+
+
+
+
+
+          <button type="button" class="quarter-btn quarter-copy-arrow admin-only" id="pqc3btn" onclick="copyQuarterForward(3)" title="3Q &#x2192; 4Q">&#x2192;</button>
+
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+        <div class="quarter-col">
+
+
+
+
+
+
+
+
+          <button class="quarter-btn" id="pq4btn" onclick="switchQuarter(4)">4Q</button>
+
+
+
+
+
+
+
+
+        </div>
+
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+
+
+      <canvas class="field-canvas" id="fieldCanvas"></canvas>
+
+
+
+
+
+
+
+      <div id="tokens"></div>
+
+
+
+
+
+
+
+      <div class="slot-info" id="slotInfo">0/11</div>
+
+
+
+
+
+
+
+
+
+
+      <div class="field-export-btns admin-only">
+        <button type="button" class="field-export-btn field-export-btn-all" onclick="exportAllQuarterImages()" title="4쿼터 한번에 저장">ALL</button>
+        <button type="button" class="field-export-btn" onclick="exportFormationImage()" title="현재 쿼터 이미지 저장"><i class="ti ti-download"></i></button>
+      </div>
+
+
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="bench-section">
+
+
+
+
+
+
+
+    <div class="bench-title admin-only">탭 &#x2192; 필드 배치 &#xB7; 드래그 &#x2192; 필드로 이동 &#xB7; &#x1F504; &#x2192; 후보 설정</div>
+
+
+
+
+
+
+
+    <div class="bench-list" id="benchList"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+<div id="presentPanel" class="present-panel">
+
+
+
+
+
+
+
+  <div class="pp-block">
+
+
+
+
+
+
+
+    <div class="pp-block-title">&#x1F4FA; &#xD654;&#xBA74; &#xD06C;&#xAE30; &#xC870;&#xC808;</div>
+
+
+
+
+
+
+
+    <div class="pp-scale-row">
+
+
+
+
+
+
+
+      <span class="pp-label">&#xCFFC;&#xD130; &#xBC84;&#xD2BC;</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('quarter',-1)">&#x2212;</button>
+
+
+
+
+
+
+
+      <span class="pp-val" id="psQuarter">100%</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('quarter',1)">+</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="pp-scale-row">
+
+
+
+
+
+
+
+      <span class="pp-label">&#xD328;&#xB110; &#xD06C;&#xAE30;</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('panelRight',-1)">&#x2212;</button>
+
+
+
+
+
+
+
+      <span class="pp-val" id="psPanel">120%</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('panelRight',1)">+</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="pp-block">
+
+
+
+
+
+
+
+    <div class="pp-block-title">&#x26BD; &#xCFFC;&#xD130; &#xCD9C;&#xC804; &#xD604;&#xD669;</div>
+
+
+
+
+
+
+
+    <div id="ppDashboard" class="pp-dashboard"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <div class="pp-block pp-exit-block">
+
+
+
+
+
+
+
+    <button class="pp-exit-btn" onclick="togglePresentMode()">&#x2715; 발표 종료</button>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="presentPanelLeft" class="present-panel-left">
+
+
+
+
+
+
+
+  <div class="pp-block">
+
+
+
+
+
+
+
+    <div class="pp-block-title">화면 크기 조절</div>
+
+
+
+
+
+
+
+    <div class="pp-scale-row">
+
+
+
+
+
+
+
+      <span class="pp-label">벤치 글씨</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('bench',-1)">&#x2212;</button>
+
+
+
+
+
+
+
+      <span class="pp-val" id="psBenchL">100%</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('bench',1)">+</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="pp-scale-row">
+
+
+
+
+
+
+
+      <span class="pp-label">멤버 글씨</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('avail',-1)">&#x2212;</button>
+
+
+
+
+
+
+
+      <span class="pp-val" id="psAvailL">100%</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('avail',1)">+</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="pp-scale-row">
+
+
+
+
+
+
+
+      <span class="pp-label">패널 크기</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('panelLeft',-1)">&#x2212;</button>
+
+
+
+
+
+
+
+      <span class="pp-val" id="psPanelL">120%</span>
+
+
+
+
+
+
+
+      <button class="pp-btn" onclick="stepPresentScale('panelLeft',1)">+</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="pp-block">
+
+
+
+
+
+
+
+    <div class="pp-block-title-row">
+
+
+
+
+
+
+
+      <span>&#x1F465; 오늘 참전 멤버</span>
+
+
+
+
+
+
+
+      <button class="pp-avail-toggle" id="btnAvailPresent" onclick="toggleAvailFilter()">필터 OFF</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div id="presentAvailArea" class="pp-avail-area"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="pp-block">
+
+
+
+
+
+
+
+    <div class="pp-block-title">&#x1F504; 벤치 선수</div>
+
+
+
+
+
+
+
+    <div id="presentBenchList" class="pp-bench-list"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="tab-stats" class="tab-panel">
+
+
+
+
+
+
+
+  <div class="stats-subnav">
+
+
+
+
+
+
+
+    <button class="stats-sub-btn active" data-sub="personal" onclick="switchStatsSub('personal')">개인 기록</button>
+
+
+
+
+
+
+
+    <button class="stats-sub-btn" data-sub="team" onclick="switchStatsSub('team')">팀 기록</button>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+  <div class="stats-toolbar" id="statsToolbar">
+
+
+
+
+
+
+
+    <select id="statsYearFilter" class="stats-filter" onchange="renderStats()"></select>
+
+
+
+
+
+
+
+    <select id="statsSortKey" class="stats-filter" onchange="renderStats()">
+
+
+
+
+
+
+
+      <option value="total">&#xC885;&#xD569;&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+      <option value="goals">&#xB4DD;&#xC810;&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+      <option value="assists">&#xC5B4;&#xC2DC;&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+      <option value="attendance">&#xCD9C;&#xC11D;&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+      <option value="mom">MOM&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+      <option value="wage">&#x1F4B0; &#xAC00;&#xCE58;&#xC21C; &#xC815;&#xB82C;</option>
+
+
+
+
+
+
+
+    </select>
+
+
+
+
+
+
+
+  
+    <button type="button" class="stats-discipline-add-btn admin-only" onclick="openDisciplineModal()">+ 패널티</button>
+</div>
+
+
+
+
+
+
+
+  <div class="stats-scroll" id="statsContent"></div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+
+
+<div class="modal-bg" id="disciplineModal">
+  <div class="modal modal-sm">
+    <h3>패널티 등록</h3>
+    <p style="font-size:11px;color:var(--text3);margin:0 0 10px">선수 가치·연말 리워드에서 차감됩니다</p>
+    <label class="modal-label">선수</label>
+    <select id="disciplinePlayer" class="modal-input"></select>
+    <div id="disciplineHint" class="discipline-form-hint"></div>
+    <label class="modal-label">금액 및 항목</label>
+    <select id="disciplineLevel" class="modal-input">
+      <option value="1">1차 — 선수 가치 -1,000원 + 당일 출전 정지</option>
+      <option value="2">2차 — 선수 가치 -2,000원 + 당일 출전 정지</option>
+      <option value="3">3차 — 선수 가치 -3,000원 + 당일 출전 정지</option>
+      <option value="30">선수 가치 -30원</option>
+      <option value="50">선수 가치 -50원</option>
+    </select>
+    <label class="modal-label">날짜</label>
+    <input type="date" id="disciplineDate" class="modal-input">
+    <label class="modal-label">사유</label>
+    <select id="disciplineReason" class="modal-input">
+      <option value="internal">팀 내 불화</option>
+      <option value="opponent">상대팀 마찰</option>
+      <option value="late">지각</option>
+      <option value="no_show">무단 불참</option>
+      <option value="other">기타</option>
+    </select>
+    <label class="modal-label">메모 (선택)</label>
+    <input type="text" id="disciplineNote" class="modal-input" placeholder="임원 메모">
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDisciplineModal()">취소</button>
+      <button class="btn-save" onclick="saveDiscipline()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="disciplineDetailModal">
+  <div class="modal modal-sm">
+    <h3 id="disciplineDetailTitle">징계 상세</h3>
+    <div id="disciplineDetailList" class="stat-history-list"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDisciplineDetailModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div id="tab-treasurer" class="tab-panel"></div>
+
+<div id="tab-records" class="tab-panel">
+
+
+
+
+
+
+
+  <div class="records-wrap">
+
+
+
+
+
+
+
+    <button class="btn-new-record admin-only" onclick="openMatchModal()"><i class="ti ti-plus"></i> 경기 결과 기록</button>
+
+
+
+
+
+
+
+    <div class="records-section-title">경기 목록</div>
+
+
+
+
+
+
+
+    <div id="recordsContent"></div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="modal-bg" id="playerModal">
+
+
+
+
+
+
+
+  <div class="modal">
+
+
+
+
+
+
+
+    <h3 id="modalTitle">선수 추가</h3>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>이름</label>
+
+
+
+
+
+
+
+      <input type="text" id="inputName" placeholder="이름 입력" autocomplete="off">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>등번호</label>
+
+
+
+
+
+
+
+      <input type="number" id="inputJersey" placeholder="등번호(예: 10)" min="1" max="99">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>포지션 설정(복수 선택 가능)</label>
+
+
+
+
+
+
+
+      <div class="pos-checkboxes" id="posCheckboxes"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field" id="ovrSection" style="display:none">
+
+
+
+
+
+
+
+      <label>포지션별 OVR <span style="font-size:11px;color:var(--text3)">1~39=&#x2605; 40~54=&#x2605;&#x2605; 55~69=&#x2605;&#x2605;&#x2605; 70~84=&#x2605;&#x2605;&#x2605;&#x2605; 85+=&#x2605;&#x2605;&#x2605;&#x2605;&#x2605;</span></label>
+
+
+
+
+
+
+
+      <div class="ovr-section" id="ovrInputs"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>폼 보너스 <span style="font-size:11px;color:var(--text3)">현재 컨디션 OVR 보정치 (&#xB1; 최대 99)</span></label>
+
+
+
+
+
+
+
+      <div class="form-bonus-row">
+
+
+
+
+
+
+
+        <input type="number" id="inputFormBonus" min="-99" max="99" step="1" value="0" oninput="updateFormBonusPreview()">
+
+
+
+
+
+
+
+        <span class="form-bonus-preview" id="formBonusPreview"></span>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label class="mercenary-label">
+
+
+
+
+
+
+
+        <input type="checkbox" id="inputMercenary">
+
+
+
+
+
+
+
+        <span>용병 (외부 선수) &mdash; 리워드 &middot; 수당 제외</span>
+
+
+
+
+
+
+
+      </label>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="savePlayer()">저장</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="popupOverlay" onclick="closePosPopup()"></div>
+
+
+
+
+
+
+
+<div class="pos-popup" id="posPopup">
+
+
+
+
+
+
+
+  <div class="pos-popup-title" id="posPopupTitle">포지션 선택</div>
+
+
+
+
+
+
+
+  <div class="pos-popup-grid" id="posPopupGrid"></div>
+
+
+
+
+
+
+
+  <button class="pos-popup-swap" id="posPopupSwapBtn" onclick="openSwapPopup(popupTargetPid)">교체 후보</button>
+
+
+
+
+
+
+
+  <button class="pos-popup-sub" id="posPopupSubBtn" onclick="openSubPopup(popupTargetPid)">교체 후보 설정 / 취소</button>
+
+
+
+
+
+
+
+  <button class="pos-popup-bench" id="posPopupBenchBtn" onclick="sendToBenchFromPopup()">벤치로 보내기</button>
+
+
+
+
+
+
+
+  <button class="pos-popup-close" onclick="closePosPopup()">닫기</button>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<!-- ── 총무 비밀번호 입력 모달 ── -->
+<div class="modal-bg" id="treasurerModal">
+  <div class="modal modal-sm">
+    <h3>총무 모드 입력</h3>
+    <p style="font-size:13px;color:var(--text3);margin:0 0 14px">비밀번호를 입력해주세요</p>
+    <div class="form-field">
+      <input type="password" id="treasurerPwInput" inputmode="numeric" placeholder="비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')submitTreasurerPw()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTreasurerModal()">취소</button>
+      <button class="btn-save-modal" onclick="submitTreasurerPw()">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 총무 옵션 모달 ── -->
+<div class="modal-bg" id="treasurerOptionsModal">
+  <div class="modal modal-sm">
+    <h3>총무 메뉴</h3>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <button class="btn-save-modal" style="background:#ef4444" onclick="exitTreasurerMode()">총무 모드 해제</button>
+      <button class="btn-save-modal" onclick="openTreasurerPwChangeModal()">비밀번호 변경</button>
+      <button class="btn-cancel" onclick="closeTreasurerOptionsModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 총무 비밀번호 변경 모달 ── -->
+<div class="modal-bg" id="treasurerPwChangeModal">
+  <div class="modal modal-sm">
+    <h3>비밀번호 변경</h3>
+    <div class="form-field">
+      <label>현재 비밀번호</label>
+      <input type="password" id="trPwCurrent" inputmode="numeric" placeholder="현재 비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')document.getElementById('trPwNew').focus()">
+    </div>
+    <div class="form-field">
+      <label>새 비밀번호</label>
+      <input type="password" id="trPwNew" inputmode="numeric" placeholder="새 비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')document.getElementById('trPwConfirm').focus()">
+    </div>
+    <div class="form-field">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="trPwConfirm" inputmode="numeric" placeholder="새 비밀번호 확인" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')submitTreasurerPwChange()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeTreasurerPwChangeModal()">취소</button>
+      <button class="btn-save-modal" onclick="submitTreasurerPwChange()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 회비 입금 모달 ── -->
+<div class="modal-bg" id="duesModal">
+  <div class="modal modal-sm">
+    <h3 id="dueModalTitle">입금 등록</h3>
+    <div class="form-field">
+      <label>유형</label>
+      <select id="dueType" class="formation-select" onchange="updateDueFormMode()">
+        <option value="payment">회비 입금</option>
+        <option value="other">기타</option>
+      </select>
+    </div>
+    <div class="form-field" id="duePlayerField">
+      <label>선수</label>
+      <select id="duePid" class="formation-select"><option value="">선수 선택</option></select>
+    </div>
+    <div class="form-field">
+      <label>금액 (원)</label>
+      <input type="number" id="dueAmount" min="0" step="1000" placeholder="예: 50000" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>날짜</label>
+      <input type="date" id="dueDate">
+    </div>
+    <div class="form-field">
+      <label id="dueNoteLabel">메모 (선택)</label>
+      <input type="text" id="dueNote" placeholder="예: 3월 회비" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeDuesModal()">취소</button>
+      <button class="btn-save-modal" onclick="saveDue()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 지출 등록 모달 ── -->
+<div class="modal-bg" id="expenseModal">
+  <div class="modal modal-sm">
+    <h3 id="expenseModalTitle">지출 등록</h3>
+    <div class="form-field">
+      <label>날짜</label>
+      <input type="date" id="expenseDate">
+    </div>
+    <div class="form-field">
+      <label>금액 (원)</label>
+      <input type="number" id="expenseAmount" min="0" step="1000" placeholder="예: 150000" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>사용처</label>
+      <input type="text" id="expenseCategory" placeholder="예: 회식, 용품 구매" autocomplete="off">
+    </div>
+    <div class="form-field">
+      <label>메모 (필수)</label>
+      <input type="text" id="expenseNote" placeholder="예: 영수증 내용, 참석 인원 (증빙)" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExpenseModal()">취소</button>
+      <button class="btn-save-modal" onclick="saveExpense()">저장</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- modals: schedule notice bulk exemption -->
+<div class="modal-bg" id="scheduleModal">
+  <div class="modal">
+    <div class="modal-section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0">&#xACBD;&#xAE30; &#xC77C;&#xC815;</h3>
+      <button type="button" class="tr-btn-sm admin-only" id="scheduleAddBtn" onclick="openScheduleEditModal()">+ &#xCD94;&#xAC00;</button>
+    </div>
+    <div id="scheduleModalBody"></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeScheduleModal()">&#xB2EB;&#xAE30;</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="scheduleEditModal">
+  <div class="modal modal-sm">
+    <h3>&#xACBD;&#xAE30; &#xC77C;&#xC815;</h3>
+    <div class="form-field"><label>&#xB0A0;&#xC9DC;</label><input type="date" id="schedDate"></div>
+    <div class="form-field"><label>&#xC2DC;&#xAC04; (&#xC120;&#xD0DD;)</label><input type="time" id="schedTime"></div>
+    <div class="form-field"><label>&#xC0C1;&#xB300; &#xD300;</label><input type="text" id="schedOpponent" placeholder="&#xC608;: FC &#xC11C;&#xC6B8;" autocomplete="off"></div>
+    <div class="form-field"><label>&#xBA54;&#xBAA8; (&#xC120;&#xD0DD;)</label><input type="text" id="schedNote" placeholder="&#xC608;: &#xD648; &#xACBD;&#xAE30;" autocomplete="off"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeScheduleEditModal()">&#xCDE8;&#xC18C;</button>
+      <button class="btn-save-modal" onclick="saveScheduleItem()">&#xC800;&#xC7A5;</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="noticeModal">
+  <div class="modal">
+    <div class="modal-section-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <h3 style="margin:0">&#xD68C;&#xCE59; &#xBC0F; &#xC0AC;&#xC774;&#xD2B8; &#xC18C;&#xAC1C;</h3>
+      <button type="button" class="tr-btn-sm admin-only" id="noticeAddBtn" onclick="openNoticeEditModal()">+ &#xCD94;&#xAC00;</button>
+    </div>
+    <div id="noticeModalBody"></div>
+    <div class="modal-actions"><button class="btn-cancel" onclick="closeNoticeModal()">&#xB2EB;&#xAE30;</button></div>
+  </div>
+</div>
+<div class="modal-bg" id="noticeEditModal">
+  <div class="modal notice-edit-modal">
+    <h3>&#xAE00; &#xC791;&#xC131;</h3>
+    <div class="form-field"><label>&#xC81C;&#xBAA9;</label><input type="text" id="noticeEditTitle" autocomplete="off"></div>
+    <div class="form-field"><label>&#xB0A0;&#xC9DC;</label><input type="date" id="noticeEditDate"></div>
+    <div class="form-field notice-edit-field"><label>&#xB0B4;&#xC6A9;</label><textarea id="noticeEditBody" class="notice-edit-body" rows="14"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeNoticeEditModal()">&#xCDE8;&#xC18C;</button>
+      <button class="btn-save-modal" onclick="saveNoticeItem()">&#xC800;&#xC7A5;</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="bulkDuesModal">
+  <div class="modal modal-sm">
+    <h3>&#xC77C;&#xAD04; &#xC785;&#xAE08;</h3>
+    <div class="form-field"><label>&#xAE08;&#xC561; (&#xC6D0;)</label><input type="number" id="bulkDueAmount" min="0" step="1000" value="50000"></div>
+    <div class="form-field"><label>&#xB0A0;&#xC9DC;</label><input type="date" id="bulkDueDate"></div>
+    <div class="form-field">
+      <label>&#xBBF8;&#xB0A9; &#xC120;&#xC218; <button type="button" class="tr-btn-sm" onclick="toggleBulkDuesAll(true)">&#xC804;&#xCCB4;</button> <button type="button" class="tr-btn-sm" onclick="toggleBulkDuesAll(false)">&#xD574;&#xC81C;</button></label>
+      <div class="bulk-due-list" id="bulkDuesList"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeBulkDuesModal()">&#xCDE8;&#xC18C;</button>
+      <button class="btn-save-modal" onclick="saveBulkDues()">&#xC800;&#xC7A5;</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="exemptionModal">
+  <div class="modal modal-sm">
+    <h3>&#xBA74;&#xC81C; &#xAD00;&#xB9AC;</h3>
+    <p style="font-size:12px;color:var(--text2);margin:0 0 8px">GK &#xB2E8;&#xC77C; &#xD3EC;&#xC9C0;&#xC158;&#xB9CC; &#xC790;&#xB3D9; &#xBA74;&#xC81C;&#xB429;&#xB2C8;&#xB2E4;.</p>
+    <div id="exemptionList"></div>
+    <div class="form-field"><label>&#xC120;&#xC218;</label><select id="exemptPid" class="formation-select"><option value="">&#xC120;&#xC218; &#xC120;&#xD0DD;</option></select></div>
+    <div class="form-field"><label>&#xC2DC;&#xC791; &#xC6D4;</label><input type="month" id="exemptFrom"></div>
+    <div class="form-field"><label>&#xC885;&#xB8CC; &#xC6D4;</label><input type="month" id="exemptTo"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeExemptionModal()">&#xB2EB;&#xAE30;</button>
+      <button class="btn-save-modal" onclick="saveExemption()">&#xBA74;&#xC81C; &#xCD94;&#xAC00;</button>
+    </div>
+  </div>
+</div>
+<div class="modal-bg" id="matchModal">
+
+
+
+
+
+
+
+  <div class="modal">
+
+
+
+
+
+
+
+    <h3>경기 결과 기록</h3>
+
+
+
+
+
+
+
+    <div class="modal-section">
+
+
+
+
+
+
+
+      <div class="modal-section-title">출전 선수</div>
+
+
+
+
+
+
+
+      <div class="form-field">
+
+
+
+
+
+
+
+        <label>우리 팀</label>
+
+
+
+
+
+
+
+        <input type="text" id="matchMyTeam" placeholder="우리 FC" autocomplete="off">
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+      <div class="form-field">
+
+
+
+
+
+
+
+        <label>상대 팀</label>
+
+
+
+
+
+
+
+        <input type="text" id="matchOppTeam" placeholder="상대 FC" autocomplete="off">
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+      <div class="form-field">
+
+
+
+
+
+
+
+        <label>경기 날짜</label>
+
+
+
+
+
+
+
+        <input type="date" id="matchDate">
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+      <div class="form-field">
+
+
+
+
+
+
+
+        <label>스코어</label>
+        <div class="score-row">
+
+
+
+
+
+
+
+          <input type="number" id="matchScoreUs" value="0" min="0" max="30">
+
+
+
+
+
+
+
+          <span>:</span>
+
+
+
+
+
+
+
+          <input type="number" id="matchScoreOpp" value="0" min="0" max="30">
+
+
+
+
+
+
+
+        </div>
+        <div class="form-field" style="margin-top:10px">
+          <label>상대 자책골 (우리 득점)</label>
+          <input type="number" id="matchOppOwnGoals" value="0" min="0" max="10" title="상대팀이 넣은 자책골 — 우리 스코어에 더해짐">
+        </div>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-section">
+
+
+
+
+
+
+
+      <div class="modal-section-title">출전 선수
+
+
+
+
+
+
+
+        <button type="button" class="btn-match-sync" onclick="syncMatchFromFormation()">포메이션에서 불러오기</button>
+
+
+
+
+
+
+
+      </div>
+
+
+
+
+
+
+
+      <div id="matchLineupPreview" class="match-lineup-preview"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-section">
+
+
+
+
+
+
+
+      <div class="modal-section-title">골 &#xB7; 어시스트</div>
+
+
+
+
+
+
+
+      <div id="matchEventList"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-section">
+
+
+
+
+
+
+
+      <div class="modal-section-title">이번 경기 MOM (Man of the Match)</div>
+
+
+
+
+
+
+
+      <div id="momSelectWrap"></div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeMatchModal()">취소</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="saveMatch()">저장</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="modal-bg" id="statHistoryModal">
+
+
+
+
+
+
+
+  <div class="modal modal-sm">
+
+
+
+
+
+
+
+    <h3 id="statHistoryTitle">선수별 기록</h3>
+
+
+
+
+
+
+
+    <div id="statHistoryList" class="stat-history-list"></div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeStatHistory()">닫기</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="modal-bg" id="adminOptionsModal">
+
+
+
+
+
+
+
+  <div class="modal modal-sm">
+
+
+
+
+
+
+
+    <h3>관리자 메뉴</h3>
+
+
+
+
+
+
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+
+
+
+
+
+
+
+      <button class="btn-save-modal" style="background:#ef4444" onclick="exitAdminMode()">관리자 모드 해제</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="openWageRatesModal()">수당 금액 수정</button>
+
+      <button class="btn-save-modal" onclick="openPwChangeModal()">비밀번호 변경</button>
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeAdminOptionsModal()">취소</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+
+<div class="modal-bg" id="wageRatesModal">
+  <div class="modal modal-sm">
+    <h3>수당 금액 수정</h3>
+    <p class="wage-rates-note">변경 후 <strong>미정산·선수 가치</strong>에 바로 반영됩니다. 이미 정산 완료된 금액은 바뀌지 않습니다.</p>
+    <div id="wageRatesGrid" class="wage-rates-grid"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeWageRatesModal()">취소</button>
+      <button class="btn-save-modal" onclick="saveWageRates()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="pwChangeModal">
+
+
+
+
+
+
+
+  <div class="modal modal-sm">
+
+
+
+
+
+
+
+    <h3>비밀번호 변경</h3>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>현재 비밀번호</label>
+
+
+
+
+
+
+
+      <input type="password" id="pwCurrent" inputmode="numeric" placeholder="현재 비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')document.getElementById('pwNew').focus()">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>새 비밀번호</label>
+
+
+
+
+
+
+
+      <input type="password" id="pwNew" inputmode="numeric" placeholder="새 비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')document.getElementById('pwConfirm').focus()">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>새 비밀번호 확인</label>
+
+
+
+
+
+
+
+      <input type="password" id="pwConfirm" inputmode="numeric" placeholder="새 비밀번호 확인" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')submitPwChange()">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closePwChangeModal()">취소</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="submitPwChange()">저장</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="modal-bg" id="adminModal">
+
+
+
+
+
+
+
+  <div class="modal modal-sm">
+
+
+
+
+
+
+
+    <h3>관리자 모드 입력</h3>
+
+
+
+
+
+
+
+    <p style="font-size:13px;color:var(--text3);margin:0 0 14px">비밀번호를 입력해주세요</p>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <input type="password" id="adminPwInput" inputmode="numeric" placeholder="비밀번호" autocomplete="off" maxlength="20" onkeydown="if(event.key==='Enter')submitAdminPw()">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeAdminModal()">취소</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="submitAdminPw()">확인</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div class="modal-bg" id="photoUrlModal">
+  <div class="modal modal-sm modal-photo">
+    <h3>팀 사진 관리</h3>
+    <p class="photo-url-hint">이미지 파일을 첨부하세요 (JPG·PNG·GIF·WEBP, 장당 5MB). 저장 시 Supabase에 업로드됩니다.</p>
+    <div id="photoSlotsList" class="photo-slots-list"></div>
+    <button type="button" class="tr-btn-sm photo-add-slot-btn" onclick="addPhotoSlot()">＋ 사진 페이지 추가</button>
+    <div class="form-field photo-interval-field"><label>자동 전환 간격 (초, 최소 3)</label><input type="number" id="photoIntervalInput" min="3" max="60" value="10" style="width:80px"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn-cancel" onclick="clearTeamPhoto()">전체 삭제</button>
+      <button class="btn-cancel" onclick="closePhotoUrlModal()">취소</button>
+      <button class="btn-save-modal" id="photoSaveBtn" onclick="saveTeamPhotos()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="fsaveModal">
+
+
+
+
+
+
+
+  <div class="modal modal-sm">
+
+
+
+
+
+
+
+    <h3>포메이션 저장</h3>
+
+
+
+
+
+
+
+    <div class="form-field">
+
+
+
+
+
+
+
+      <label>이름</label>
+
+
+
+
+
+
+
+      <input type="text" id="fsaveNameInput" placeholder="예: 기본 4-3-3" autocomplete="off">
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="modal-actions">
+
+
+
+
+
+
+
+      <button class="btn-cancel" onclick="closeFsaveModal()">취소</button>
+
+
+
+
+
+
+
+      <button class="btn-save-modal" onclick="confirmSaveFormation()">저장</button>
+
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+  </div>
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+
+<div id="platformClubBar" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:#1e3a5f;color:#fff;font-size:13px;padding:6px 12px;display:flex;align-items:center;gap:12px;font-family:system-ui,sans-serif">
+  <a href="../index.html" style="color:#93c5fd;text-decoration:none">← FC 플랫폼</a>
+  <span id="platformClubBarName"></span>
+</div>
+<div style="height:36px"></div>
+<script type="module" src="club-boot.js?v=1"></script>
+
+
+
+
+
+
+
 </body>
+
+
+
+
+
+
+
 </html>
+
+
+
+
+
+
+
