@@ -219,8 +219,11 @@ function syncMetaPasswords(meta) {
 
 function applyAdminMode() {
   document.body.classList.toggle('is-admin', isAdmin);
-  // 관리자 켜질 때 총무 상호 배타
-  if (isAdmin && isTreasurer) { isTreasurer = false; applyTreasurerMode(); }
+  // 관리자 켜질 때 총무 상호 배타 (플랫폼 구단주 owner 는 예외)
+  if (isAdmin && isTreasurer && window.__CLUB__?.role !== 'owner') {
+    isTreasurer = false;
+    applyTreasurerMode();
+  }
   // 잠금 버튼 아이콘
   const btn = document.getElementById('adminToggleBtn');
   if (btn) {

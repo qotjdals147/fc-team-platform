@@ -1,0 +1,28 @@
+/* FC 플랫폼 — 구단 홈 상단 바 (클릭 가로채기 방지) */
+body.platform-club #app {
+  padding-top: 36px;
+  box-sizing: border-box;
+}
+
+#platformClubBar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  pointer-events: none;
+  background: #1e3a5f;
+  color: #fff;
+  font-size: 13px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: system-ui, sans-serif;
+}
+
+#platformClubBar a {
+  pointer-events: auto;
+  color: #93c5fd;
+  text-decoration: none;
+}
