@@ -97,6 +97,8 @@ export function rpcErrorMessage(e) {
   if (msg.includes('invitation already pending')) return '이미 초대 대기 중입니다.';
   if (msg.includes('application already pending')) return '이미 신청 대기 중입니다.';
   if (msg.includes('club not recruiting')) return '모집 중인 구단이 아닙니다.';
-  if (msg.includes('rpc/')) return 'RPC 미설치 — Supabase에서 rpc-members.sql 실행 필요';
+  if (msg.includes('JWT expired') || msg.includes('로그인이 만료')) {
+    return '로그인이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.';
+  }
   return msg || '요청 실패';
 }

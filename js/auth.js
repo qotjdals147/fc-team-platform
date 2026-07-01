@@ -29,6 +29,43 @@ export function getAccessToken() {
   return getSession()?.access_token || null;
 }
 
+/** @returns {boolean} */
+export function isAccessTokenExpired(session = getSession()) {
+  if (!session?.access_token) return true;
+  const exp = session.expires_at;
+  if (typeof exp !== 'number') return false;
+  return Date.now() / 1000 >= exp - 30;
+}
+
+export async function refreshSession() {
+  const session = getSession();
+  if (!session?.refresh_token) {
+    clearSession();
+    return null;
+  }
+
+  const { ok, json } = await postJson(
+    `${authBase()}/token?grant_type=refresh_token`,
+    { refresh_token: session.refresh_token },
+  );
+
+  if (ok && json?.access_token) {
+    saveSession(json);
+    return json;
+  }
+
+  clearSession();
+  return null;
+}
+
+/** 로그인 세션 유지 — access JWT 만료 시 refresh_token으로 갱신 */
+export async function ensureValidSession() {
+  const session = getSession();
+  if (!session?.access_token) return null;
+  if (!isAccessTokenExpired(session)) return session;
+  return refreshSession();
+}
+
 export function getUserId() {
   return getSession()?.user?.id || null;
 }

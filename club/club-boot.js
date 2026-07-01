@@ -2,7 +2,7 @@
  * 구단 홈 진입 — slug → team_id, Auth·소속 확인 후 FC 제ero UI 로드
  */
 import { PLATFORM } from '../js/config.js';
-import { getUserId } from '../js/auth.js';
+import { getUserId, ensureValidSession } from '../js/auth.js';
 import { apiGetClubBySlug, apiGetMyClubRole } from '../js/api.js';
 
 window.__PLATFORM__ = PLATFORM;
@@ -43,6 +43,18 @@ async function main() {
     );
     return;
   }
+
+  const session = await ensureValidSession();
+  if (!session) {
+    showGate(
+      '로그인이 만료되었습니다.',
+      '../index.html',
+      '다시 로그인',
+    );
+    return;
+  }
+
+  window.__ensurePlatformSession = ensureValidSession;
 
   let club;
   let role;

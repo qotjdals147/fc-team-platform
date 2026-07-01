@@ -4,7 +4,7 @@
  */
 
 import { PLATFORM } from './config.js';
-import { getAccessToken } from './auth.js';
+import { clearSession, ensureValidSession, getAccessToken, refreshSession } from './auth.js';
 
 export function isBackendReady() {
   return Boolean(PLATFORM.SUPABASE_URL && PLATFORM.SUPABASE_KEY);
@@ -35,10 +35,19 @@ async function parseJson(res) {
 
 /**
  * @param {string} path — rest/v1/ 이후 (예: profiles?id=eq.xxx)
+ * @param {object} options
+ * @param {boolean} [_retried]
  */
-export async function apiFetch(path, options = {}) {
+export async function apiFetch(path, options = {}, _retried = false) {
   const { method = 'GET', body, requireAuth = false, prefer } = options;
   if (!isBackendReady()) throw new Error('SUPABASE 미설정 (config.js)');
+
+  if (requireAuth) {
+    const session = await ensureValidSession();
+    if (!session) {
+      throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+    }
+  }
 
   const headers = { ...authHeaders(requireAuth) };
   if (prefer) headers.Prefer = prefer;
@@ -54,6 +63,18 @@ export async function apiFetch(path, options = {}) {
     const msg =
       (json && (json.message || json.error || json.hint)) ||
       `HTTP ${res.status}`;
+    const jwtExpired =
+      requireAuth &&
+      !_retried &&
+      (msg.includes('JWT expired') || msg.includes('Invalid JWT'));
+
+    if (jwtExpired) {
+      const refreshed = await refreshSession();
+      if (refreshed) return apiFetch(path, options, true);
+      clearSession();
+      throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+    }
+
     const err = new Error(msg);
     err.status = res.status;
     err.body = json;

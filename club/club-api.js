@@ -311,6 +311,7 @@
   }
 
   async function apiLoadAll(silent = false) {
+    if (window.__ensurePlatformSession) await window.__ensurePlatformSession();
     if (!silent) syncUI('loading', '데이터 불러오는 중…');
     const jobs = [
       ['players', () => sbSelect('players'), []],
@@ -367,6 +368,7 @@
   }
 
   async function apiSavePartial(data) {
+    if (window.__ensurePlatformSession) await window.__ensurePlatformSession();
     syncUI('saving', '저장 중…');
     try {
       const tasks = [];
