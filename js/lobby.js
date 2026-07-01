@@ -42,6 +42,38 @@ import {
 
 } from './api.js';
 
+import {
+
+  canManageMembers,
+
+  canChangeRoles,
+
+  canToggleRecruiting,
+
+  loadClubPanel,
+
+  loadMyInvitations,
+
+  loadRecruitingClubs,
+
+  inviteMember,
+
+  respondInvite,
+
+  setRecruiting,
+
+  applyClub,
+
+  respondApp,
+
+  changeMemberRole,
+
+  memberLabel,
+
+  rpcErrorMessage,
+
+} from './members.js';
+
 
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -67,6 +99,20 @@ let myClubs = [];
 let clubsLoading = false;
 
 let createClubOpen = false;
+
+let manageClubId = null;
+
+let clubPanel = null;
+
+let clubPanelLoading = false;
+
+let myInvitations = [];
+
+let recruitingClubs = [];
+
+let showRecruitingList = false;
+
+let memberMsg = '';
 
 
 
@@ -172,11 +218,15 @@ async function refreshSessionData() {
 
     myClubs = clubs || [];
 
+    myInvitations = await loadMyInvitations();
+
   } catch {
 
     profile = null;
 
     myClubs = [];
+
+    myInvitations = [];
 
   }
 
@@ -210,7 +260,9 @@ function renderNotificationPanel() {
 
         ${empty ? '<li class="notif-empty">알림이 없습니다.</li>' : list.map((n) => `
 
-          <li class="notif-item ${n.readAt ? 'is-read' : 'is-unread'}" data-id="${n.id}">
+          <li class="notif-item ${n.readAt ? 'is-read' : 'is-unread'}" data-id="${n.id}" data-type="${escapeHtml(n.type)}">
+
+            <div class="notif-item__wrap" style="flex:1">
 
             <button type="button" class="notif-item__body">
 
@@ -221,6 +273,20 @@ function renderNotificationPanel() {
               <span class="notif-item__time">${formatTime(n.createdAt)}</span>
 
             </button>
+
+            ${n.type === 'club_invite' && !n.readAt && n.payload?.invitation_id ? `
+
+              <div class="notif-actions">
+
+                <button type="button" class="btn btn--primary" data-invite-action="accept" data-invite-id="${n.payload.invitation_id}">수락</button>
+
+                <button type="button" class="btn btn--outline" data-invite-action="decline" data-invite-id="${n.payload.invitation_id}">거절</button>
+
+              </div>
+
+            ` : ''}
+
+            </div>
 
             <button type="button" class="notif-item__delete" aria-label="삭제">✕</button>
 
@@ -347,6 +413,50 @@ function mountNotificationUI() {
       if (id) await removeNotification(id);
 
       mountNotificationUI();
+
+    });
+
+  });
+
+
+
+  $$('[data-invite-action]', host).forEach((btn) => {
+
+    btn.addEventListener('click', async (e) => {
+
+      e.stopPropagation();
+
+      const id = btn.dataset.inviteId;
+
+      const accept = btn.dataset.inviteAction === 'accept';
+
+      if (!id) return;
+
+      btn.disabled = true;
+
+      try {
+
+        await respondInvite(Number(id), accept);
+
+        const notifId = btn.closest('.notif-item')?.dataset.id;
+
+        if (notifId) await markRead(notifId);
+
+        panelOpen = false;
+
+        await refreshSessionData();
+
+        mountNotificationUI();
+
+        renderMain();
+
+      } catch (err) {
+
+        alert(rpcErrorMessage(err));
+
+        btn.disabled = false;
+
+      }
 
     });
 
@@ -522,6 +632,140 @@ function initSideRails() {
 
 
 
+function renderMemberPanel(club) {
+
+  if (!clubPanel || clubPanel.detail?.id !== club.id) {
+
+    return clubPanelLoading ? '<p class="page-muted">멤버 불러오는 중...</p>' : '';
+
+  }
+
+  const { detail, members, applications } = clubPanel;
+
+  const canManage = canManageMembers(club.role);
+
+  const canRoles = canChangeRoles(club.role);
+
+  const canRecruit = canToggleRecruiting(club.role);
+
+
+
+  const memberRows = members.map((m) => {
+
+    const label = memberLabel(m);
+
+    const isOwner = m.role === 'owner';
+
+    const roleSelect = canRoles && !isOwner && m.user_id !== getUserId()
+
+      ? `<select class="member-role-select" data-member-role data-user-id="${m.user_id}">
+
+          <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>관리자</option>
+
+          <option value="treasurer" ${m.role === 'treasurer' ? 'selected' : ''}>총무</option>
+
+          <option value="member" ${m.role === 'member' ? 'selected' : ''}>멤버</option>
+
+        </select>`
+
+      : `<span class="tag">${roleLabel(m.role)}</span>`;
+
+    return `<li><span>${escapeHtml(label)}</span>${roleSelect}</li>`;
+
+  }).join('');
+
+
+
+  const appRows = canManage && applications.length
+
+    ? applications.map((a) => `
+
+        <div class="card app-card" data-app-id="${a.id}">
+
+          <strong>${escapeHtml(memberLabel(a))}</strong>
+
+          <p class="app-card__meta">${escapeHtml(a.message || '메시지 없음')}</p>
+
+          <div class="btn-row">
+
+            <button type="button" class="btn btn--primary btn--sm" data-app-approve="${a.id}">승인</button>
+
+            <button type="button" class="btn btn--outline btn--sm" data-app-reject="${a.id}">거절</button>
+
+          </div>
+
+        </div>
+
+      `).join('')
+
+    : canManage ? '<p class="page-muted">대기 중인 가입 신청 없음</p>' : '';
+
+
+
+  const manageBlock = canManage ? `
+
+    <div class="member-panel">
+
+      <div class="member-panel__head"><strong>멤버 (${members.length})</strong></div>
+
+      <ul class="member-list">${memberRows || '<li class="page-muted">멤버 없음</li>'}</ul>
+
+
+
+      <div class="member-panel__head" style="margin-top:12px"><strong>초대 (M08)</strong></div>
+
+      <div class="invite-row">
+
+        <input class="form-input" id="invitePlatformId" type="text" placeholder="플랫폼 ID" maxlength="16">
+
+        <select class="member-role-select" id="inviteRole">
+
+          <option value="member">멤버</option>
+
+          <option value="admin">관리자</option>
+
+          <option value="treasurer">총무</option>
+
+        </select>
+
+        <button type="button" class="btn btn--primary" id="btnSendInvite" data-club-id="${club.id}">초대</button>
+
+      </div>
+
+
+
+      ${canRecruit ? `
+
+        <div class="toggle-row">
+
+          <label><input type="checkbox" id="recruitingToggle" data-club-id="${club.id}" ${detail?.recruiting ? 'checked' : ''}> 모집중 (M09)</label>
+
+        </div>
+
+      ` : ''}
+
+
+
+      ${applications.length || canManage ? `
+
+        <div class="member-panel__head" style="margin-top:12px"><strong>가입 신청</strong></div>
+
+        ${appRows}
+
+      ` : ''}
+
+    </div>
+
+  ` : '';
+
+
+
+  return manageBlock;
+
+}
+
+
+
 function renderClubs() {
 
   if (!getUserId()) {
@@ -544,21 +788,61 @@ function renderClubs() {
 
 
 
+  const inviteBlock = myInvitations.length ? `
+
+    <section class="card">
+
+      <h2 class="card__title">받은 초대</h2>
+
+      ${myInvitations.map((inv) => `
+
+        <div class="app-card" data-invite-card="${inv.id}">
+
+          <strong>${escapeHtml(inv.clubs?.name || '구단')}</strong>
+
+          <p class="app-card__meta">역할: ${roleLabel(inv.role || 'member')}</p>
+
+          <div class="btn-row">
+
+            <button type="button" class="btn btn--primary btn--sm" data-invite-accept="${inv.id}">수락</button>
+
+            <button type="button" class="btn btn--outline btn--sm" data-invite-decline="${inv.id}">거절</button>
+
+          </div>
+
+        </div>
+
+      `).join('')}
+
+    </section>
+
+  ` : '';
+
+
+
   const list = myClubs.length
 
     ? myClubs.map((c) => `
 
-        <section class="card club-card">
+        <section class="card club-card" data-club-id="${c.id}">
 
           <div class="club-card__thumb">${escapeHtml(c.name.slice(0, 2))}</div>
 
-          <div>
+          <div style="flex:1">
 
             <h3>${escapeHtml(c.name)}</h3>
 
             <p class="page-muted">${escapeHtml(c.region)} · ${roleLabel(c.role)}</p>
 
-            <a class="btn btn--primary" href="club/index.html?slug=${encodeURIComponent(c.slug)}" target="_blank" rel="noopener">홈피 가기</a>
+            <div class="btn-row">
+
+              <a class="btn btn--primary" href="club/index.html?slug=${encodeURIComponent(c.slug)}" target="_blank" rel="noopener">홈피 가기</a>
+
+              ${canManageMembers(c.role) ? `<button type="button" class="btn btn--outline" data-manage-club="${c.id}">${manageClubId === c.id ? '멤버 관리 닫기' : '멤버 관리'}</button>` : ''}
+
+            </div>
+
+            ${manageClubId === c.id ? renderMemberPanel(c) : ''}
 
           </div>
 
@@ -566,7 +850,49 @@ function renderClubs() {
 
       `).join('')
 
-    : '<p class="page-muted">아직 소속 구단이 없습니다. 아래에서 만들 수 있습니다.</p>';
+    : '<p class="page-muted">아직 소속 구단이 없습니다. 아래에서 만들거나 모집 중인 구단에 신청하세요.</p>';
+
+
+
+  const recruitingBlock = showRecruitingList ? `
+
+    <section class="card" id="recruitingSection">
+
+      <h2 class="card__title">모집 중인 구단 (M09)</h2>
+
+      ${recruitingClubs.length ? recruitingClubs.map((rc) => {
+
+        const joined = myClubs.some((mc) => mc.id === rc.id);
+
+        return `
+
+          <div class="app-card">
+
+            <strong>${escapeHtml(rc.name)}</strong>
+
+            <p class="app-card__meta">${escapeHtml(rc.region)}</p>
+
+            ${joined ? '<span class="tag">이미 소속</span>' : `
+
+              <div class="form-row">
+
+                <input class="form-input" type="text" placeholder="신청 메시지 (선택)" data-apply-msg="${rc.id}">
+
+              </div>
+
+              <button type="button" class="btn btn--primary btn--sm" data-apply-club="${rc.id}">가입 신청</button>
+
+            `}
+
+          </div>
+
+        `;
+
+      }).join('') : '<p class="page-muted">모집 중인 구단이 없습니다.</p>'}
+
+    </section>
+
+  ` : '';
 
 
 
@@ -630,11 +956,19 @@ function renderClubs() {
 
       ${clubsLoading ? '<p class="page-muted">불러오는 중...</p>' : ''}
 
+      ${memberMsg ? `<p class="page-warn" aria-live="polite">${escapeHtml(memberMsg)}</p>` : ''}
+
     </section>
+
+    ${inviteBlock}
 
     ${list}
 
+    ${recruitingBlock}
+
     ${createForm}
+
+    <button type="button" class="btn btn--outline btn--block" id="btnToggleRecruiting">${showRecruitingList ? '모집 목록 닫기' : '모집 중인 구단 찾기'}</button>
 
     <button type="button" class="btn btn--outline btn--block" id="btnToggleCreate">${createClubOpen ? '닫기' : '+ 구단 만들기'}</button>
 
@@ -804,7 +1138,353 @@ function renderMain() {
 
   if (activeTab === 'profile') initProfileAuth();
 
-  if (activeTab === 'clubs') initClubsActions();
+  if (activeTab === 'clubs') {
+
+    initClubsActions();
+
+    initMembersActions();
+
+  }
+
+}
+
+
+
+async function openClubPanel(clubId) {
+
+  if (manageClubId === clubId) {
+
+    manageClubId = null;
+
+    clubPanel = null;
+
+    renderMain();
+
+    return;
+
+  }
+
+  manageClubId = clubId;
+
+  clubPanel = null;
+
+  clubPanelLoading = true;
+
+  memberMsg = '';
+
+  renderMain();
+
+  try {
+
+    clubPanel = await loadClubPanel(clubId);
+
+  } catch (e) {
+
+    memberMsg = rpcErrorMessage(e);
+
+    manageClubId = null;
+
+  }
+
+  clubPanelLoading = false;
+
+  renderMain();
+
+}
+
+
+
+function initMembersActions() {
+
+  $$('[data-manage-club]').forEach((btn) => {
+
+    btn.addEventListener('click', () => openClubPanel(btn.dataset.manageClub));
+
+  });
+
+
+
+  $('#btnToggleRecruiting')?.addEventListener('click', async () => {
+
+    showRecruitingList = !showRecruitingList;
+
+    if (showRecruitingList && !recruitingClubs.length) {
+
+      try {
+
+        recruitingClubs = await loadRecruitingClubs();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+      }
+
+    }
+
+    renderMain();
+
+  });
+
+
+
+  $('#btnSendInvite')?.addEventListener('click', async () => {
+
+    const clubId = $('#btnSendInvite')?.dataset.clubId;
+
+    const pid = $('#invitePlatformId')?.value?.trim().toLowerCase();
+
+    const role = $('#inviteRole')?.value || 'member';
+
+    if (!clubId || !pid) {
+
+      memberMsg = '플랫폼 ID를 입력해 주세요.';
+
+      renderMain();
+
+      return;
+
+    }
+
+    memberMsg = '초대 중...';
+
+    renderMain();
+
+    try {
+
+      await inviteMember(clubId, pid, role);
+
+      memberMsg = '초대를 보냈습니다.';
+
+      clubPanel = await loadClubPanel(clubId);
+
+      renderMain();
+
+    } catch (e) {
+
+      memberMsg = rpcErrorMessage(e);
+
+      renderMain();
+
+    }
+
+  });
+
+
+
+  $('#recruitingToggle')?.addEventListener('change', async (e) => {
+
+    const clubId = e.target.dataset.clubId;
+
+    if (!clubId) return;
+
+    try {
+
+      await setRecruiting(clubId, e.target.checked);
+
+      if (clubPanel?.detail) clubPanel.detail.recruiting = e.target.checked;
+
+      memberMsg = e.target.checked ? '모집을 시작했습니다.' : '모집을 종료했습니다.';
+
+    } catch (err) {
+
+      memberMsg = rpcErrorMessage(err);
+
+      e.target.checked = !e.target.checked;
+
+    }
+
+    renderMain();
+
+  });
+
+
+
+  $$('[data-member-role]').forEach((sel) => {
+
+    sel.addEventListener('change', async () => {
+
+      const userId = sel.dataset.userId;
+
+      const clubId = manageClubId;
+
+      if (!userId || !clubId) return;
+
+      try {
+
+        await changeMemberRole(clubId, userId, sel.value);
+
+        memberMsg = '역할을 변경했습니다.';
+
+        clubPanel = await loadClubPanel(clubId);
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-app-approve]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const id = Number(btn.dataset.appApprove);
+
+      if (!id || !manageClubId) return;
+
+      try {
+
+        await respondApp(id, true);
+
+        memberMsg = '가입을 승인했습니다.';
+
+        await refreshSessionData();
+
+        clubPanel = await loadClubPanel(manageClubId);
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-app-reject]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const id = Number(btn.dataset.appReject);
+
+      if (!id || !manageClubId) return;
+
+      try {
+
+        await respondApp(id, false);
+
+        memberMsg = '가입을 거절했습니다.';
+
+        clubPanel = await loadClubPanel(manageClubId);
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-invite-accept]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      try {
+
+        await respondInvite(Number(btn.dataset.inviteAccept), true);
+
+        memberMsg = '초대를 수락했습니다.';
+
+        await refreshSessionData();
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-invite-decline]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      try {
+
+        await respondInvite(Number(btn.dataset.inviteDecline), false);
+
+        memberMsg = '초대를 거절했습니다.';
+
+        await refreshSessionData();
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-apply-club]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const clubId = btn.dataset.applyClub;
+
+      const msgEl = document.querySelector(`[data-apply-msg="${clubId}"]`);
+
+      const message = msgEl?.value?.trim() || '';
+
+      try {
+
+        await applyClub(clubId, message);
+
+        memberMsg = '가입 신청을 보냈습니다.';
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
 
 }
 

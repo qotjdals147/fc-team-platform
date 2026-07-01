@@ -181,6 +181,7 @@ body {
   color: var(--text);
 }
 .btn--block { width: 100%; margin-top: 12px; }
+.btn--sm { padding: 6px 12px; font-size: 0.85rem; }
 .btn-text {
   border: none;
   background: none;
@@ -412,7 +413,33 @@ body {
 body.no-ads .ad-rail { display: none !important; }
 body.no-ads .main { max-width: 1400px; }
 
-@media (max-width: 520px) {
+.member-panel { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.member-panel__head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.member-list { list-style: none; margin: 0; padding: 0; }
+.member-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.member-list li:last-child { border-bottom: none; }
+.member-role-select {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+.invite-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.invite-row .form-input { flex: 1; min-width: 120px; }
+.toggle-row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.notif-actions { display: flex; gap: 8px; padding: 0 16px 12px; }
+.notif-actions .btn { flex: 1; padding: 8px; font-size: 0.85rem; }
+.app-card { margin-bottom: 10px; }
+.app-card__meta { font-size: 0.8rem; color: var(--muted); }
+
   .notif-panel {
     right: 12px;
     left: 12px;

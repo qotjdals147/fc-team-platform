@@ -105,7 +105,7 @@ export async function apiListMyClubs(userId) {
     .map((r) => ({ ...r.clubs, role: r.role }));
 }
 
-/** RPC create_club — SQL: platform/setup/rpc-create-club.sql */
+/** RPC create_club — SQL: setup/platform_setup/rpc-create-club.sql */
 export async function apiCreateClub({ slug, name, region }) {
   return apiFetch('rpc/create_club', {
     method: 'POST',
@@ -154,5 +154,112 @@ export async function apiDeleteNotification(id, userId) {
     requireAuth: true,
     prefer: 'return=minimal',
     body: { deleted_at: new Date().toISOString() },
+  });
+}
+
+// ── members (M08~M10) — RPC: setup/platform_setup/rpc-members.sql ──
+
+export async function apiSearchProfileByPlatformId(platformId) {
+  const pid = encodeURIComponent(String(platformId || '').trim().toLowerCase());
+  const rows = await apiFetch(
+    `profiles?platform_id=eq.${pid}&select=id,platform_id,legal_name`,
+    { requireAuth: true },
+  );
+  return rows?.[0] || null;
+}
+
+export async function apiGetClubDetail(clubId) {
+  const rows = await apiFetch(
+    `clubs?id=eq.${clubId}&select=id,slug,name,region,recruiting,team_id`,
+    { requireAuth: true },
+  );
+  return rows?.[0] || null;
+}
+
+export async function apiListClubMembers(clubId) {
+  return apiFetch(
+    `club_members?club_id=eq.${clubId}&status=eq.active&select=role,joined_at,user_id,profiles(platform_id,legal_name)&order=joined_at.asc`,
+    { requireAuth: true },
+  );
+}
+
+export async function apiListPendingApplications(clubId) {
+  return apiFetch(
+    `club_applications?club_id=eq.${clubId}&status=eq.pending&select=id,message,created_at,user_id,profiles(platform_id,legal_name)&order=created_at.desc`,
+    { requireAuth: true },
+  );
+}
+
+export async function apiListMyPendingInvitations(userId) {
+  return apiFetch(
+    `club_invitations?invitee_id=eq.${userId}&status=eq.pending&select=id,role,created_at,inviter_id,clubs(id,name,slug)`,
+    { requireAuth: true },
+  );
+}
+
+export async function apiListRecruitingClubs() {
+  return apiFetch(
+    'clubs?recruiting=eq.true&select=id,slug,name,region&order=name.asc',
+    { requireAuth: true },
+  );
+}
+
+export async function apiInviteToClub(clubId, platformId, role = 'member') {
+  return apiFetch('rpc/invite_to_club', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_club_id: clubId,
+      p_invitee_platform_id: platformId,
+      p_role: role,
+    },
+  });
+}
+
+export async function apiRespondInvitation(invitationId, accept) {
+  return apiFetch('rpc/respond_invitation', {
+    method: 'POST',
+    requireAuth: true,
+    body: { p_invitation_id: invitationId, p_accept: accept },
+  });
+}
+
+export async function apiSetClubRecruiting(clubId, recruiting) {
+  return apiFetch('rpc/set_club_recruiting', {
+    method: 'POST',
+    requireAuth: true,
+    body: { p_club_id: clubId, p_recruiting: recruiting },
+  });
+}
+
+export async function apiApplyToClub(clubId, message = '') {
+  return apiFetch('rpc/apply_to_club', {
+    method: 'POST',
+    requireAuth: true,
+    body: { p_club_id: clubId, p_message: message },
+  });
+}
+
+export async function apiRespondApplication(applicationId, approve, role = 'member') {
+  return apiFetch('rpc/respond_application', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_application_id: applicationId,
+      p_approve: approve,
+      p_role: role,
+    },
+  });
+}
+
+export async function apiUpdateMemberRole(clubId, targetUserId, newRole) {
+  return apiFetch('rpc/update_member_role', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_club_id: clubId,
+      p_target_user_id: targetUserId,
+      p_new_role: newRole,
+    },
   });
 }

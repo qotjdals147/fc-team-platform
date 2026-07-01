@@ -125,6 +125,7 @@ function applyTreasurerMode() {
 }
 
 function toggleTreasurerMode() {
+  if (isPlatformClub()) return;
   if (isTreasurer) {
     openTreasurerOptionsModal();
   } else {
@@ -163,6 +164,7 @@ function closeTreasurerOptionsModal() {
   document.getElementById('treasurerOptionsModal').classList.remove('open');
 }
 function exitTreasurerMode() {
+  if (isPlatformClub() && platformRolePermissions(window.__CLUB__?.role).treasurer) return;
   closeTreasurerOptionsModal();
   isTreasurer = false;
   applyTreasurerMode();
@@ -208,6 +210,7 @@ function getAdminPw() {
 }
 
 function syncMetaPasswords(meta) {
+  if (isPlatformClub()) return;
   if (!meta) return;
   if (meta.adminPw != null && String(meta.adminPw) !== '') {
     localStorage.setItem('fc_admin_pw', String(meta.adminPw));
@@ -219,6 +222,7 @@ function syncMetaPasswords(meta) {
 
 function applyAdminMode() {
   document.body.classList.toggle('is-admin', isAdmin);
+  if (isPlatformClub()) hidePlatformAuthLocks?.();
   // 관리자 켜질 때 총무 상호 배타 (플랫폼 구단주 owner 는 예외)
   if (isAdmin && isTreasurer && window.__CLUB__?.role !== 'owner') {
     isTreasurer = false;
@@ -248,6 +252,7 @@ function applyAdminMode() {
 }
 
 function toggleAdminMode() {
+  if (isPlatformClub()) return;
   if (isAdmin) {
     openAdminOptionsModal();
   } else {
@@ -262,6 +267,7 @@ function closeAdminOptionsModal() {
   document.getElementById('adminOptionsModal').classList.remove('open');
 }
 function exitAdminMode() {
+  if (isPlatformClub() && platformRolePermissions(window.__CLUB__?.role).admin) return;
   closeAdminOptionsModal();
   isAdmin = false;
   applyAdminMode();
@@ -943,12 +949,14 @@ function migratePlayerPos(p) {
 }
 
 function applyRemoteData(data) {
-  players = (data.players?.length ? data.players : DEFAULT_PLAYERS.map(p => ({...p})))
+  const emptyRoster = isPlatformClub() ? [] : DEFAULT_PLAYERS.map(p => ({...p}));
+  players = (data.players?.length ? data.players : emptyRoster)
     .map(p => normalizePlayerOvr(migratePlayerPos({...p})));
   matches = normalizeMatchDates(data.matches || []);
   myTeamName = data.meta?.myTeam || '';
+  if (!myTeamName && isPlatformClub()) myTeamName = window.__CLUB__?.name || '';
   if (!myTeamName) myTeamName = localStorage.getItem('fc_myteam') || '';
-  if (myTeamName) localStorage.setItem('fc_myteam', myTeamName);
+  if (myTeamName && !isPlatformClub()) localStorage.setItem('fc_myteam', myTeamName);
   // 시트에 저장된 비밀번호로 로컬 동기화 (기기 간 비밀번호 통일)
   syncMetaPasswords(data.meta);
   // 총무 데이터 (시트 Date/ISO → YYYY-MM-DD)
@@ -973,15 +981,15 @@ function applyRemoteData(data) {
     photoUrls = single ? [single] : [];
   }
   photoUrls = photoUrls.map(u => normalizePhotoUrl(u)).filter(Boolean);
-  if (!photoUrls.length) {
+  if (!photoUrls.length && !isPlatformClub()) {
     const rawPhotosL = localStorage.getItem('fc_team_photos');
     if (rawPhotosL) { try { photoUrls = JSON.parse(rawPhotosL); } catch(e) {} }
     else { const s = localStorage.getItem('fc_team_photo'); if (s) photoUrls = [s]; }
     photoUrls = photoUrls.map(u => normalizePhotoUrl(u)).filter(Boolean);
   }
   teamPhotoUrl = photoUrls[0] || '';
-  if (teamPhotoUrl) localStorage.setItem('fc_team_photo', teamPhotoUrl);
-  if (photoUrls.length) localStorage.setItem('fc_team_photos', JSON.stringify(photoUrls));
+  if (teamPhotoUrl && !isPlatformClub()) localStorage.setItem('fc_team_photo', teamPhotoUrl);
+  if (photoUrls.length && !isPlatformClub()) localStorage.setItem('fc_team_photos', JSON.stringify(photoUrls));
   // 슬라이드 간격
   const rawInterval = data.meta?.photoInterval;
   if (rawInterval != null) photoInterval = Math.max(3, Number(rawInterval) || 10);
@@ -997,7 +1005,7 @@ function applyRemoteData(data) {
       photoTransforms = st && typeof st === 'object' ? [{ x: st.x||0, y: st.y||0, scale: st.scale||1 }] : [];
     }
     const lt = localStorage.getItem('fc_photo_transform');
-    if (!photoTransforms.length && lt) try { photoTransforms = [JSON.parse(lt)]; } catch(e) {}
+    if (!photoTransforms.length && lt && !isPlatformClub()) try { photoTransforms = [JSON.parse(lt)]; } catch(e) {}
   }
   currentPhotoIdx = 0;
   photoTransform = photoTransforms[0] || { x:0, y:0, scale:1 };
@@ -1061,6 +1069,7 @@ function applyRemoteData(data) {
   }
 }
 async function maybeMigrateLocal(data) {
+  if (isPlatformClub()) return data;
   const remoteEmpty = !data.players?.length && !data.matches?.length && !data.saves?.length;
   if (!remoteEmpty) return data;
   const lp = localStorage.getItem('fc_players');
@@ -1084,6 +1093,26 @@ async function maybeMigrateLocal(data) {
   return migrated;
 }
 function loadLocalFallback() {
+  if (isPlatformClub()) {
+    players = [];
+    matches = [];
+    formationSaves = [];
+    myTeamName = window.__CLUB__?.name || '';
+    photoUrls = [];
+    teamPhotoUrl = '';
+    photoTransforms = [];
+    photoTransform = { x: 0, y: 0, scale: 1 };
+    dues = [];
+    expenses = [];
+    settlements = [];
+    schedules = [];
+    notices = [];
+    dueExemptions = [];
+    dueMemos = [];
+    disciplines = [];
+    loadFieldState();
+    return;
+  }
   const s = localStorage.getItem('fc_players');
   players = (s ? JSON.parse(s) : DEFAULT_PLAYERS.map(p => ({...p}))).map(p => normalizePlayerOvr(migratePlayerPos({...p})));
   matches = normalizeMatchDates(JSON.parse(localStorage.getItem('fc_matches') || '[]'));
@@ -1131,6 +1160,7 @@ function loadLocalFallback() {
   loadFieldState();
 }
 function hasLocalData() {
+  if (isPlatformClub()) return false;
   return !!(localStorage.getItem('fc_players')
     || (localStorage.getItem('fc_matches') && localStorage.getItem('fc_matches') !== '[]')
     || localStorage.getItem('fc_field')
@@ -1144,7 +1174,7 @@ async function bootstrapApp() {
     data = await maybeMigrateLocal(data);
     applyRemoteData(data);
     if (remoteEmpty && !hasLocalData()) {
-      await persistPlayers();
+      if (!isPlatformClub()) await persistPlayers();
       await persistField();
     }
   } catch (e) {
@@ -1202,8 +1232,8 @@ async function persistField() {
 async function persistMatches() { await apiSavePartial({ matches }); }
 async function persistSaves() { await apiSavePartial({ saves: formationSaves }); }
 async function persistMeta() {
-  const adminPw      = localStorage.getItem('fc_admin_pw')      || undefined;
-  const treasurerPw  = localStorage.getItem('fc_treasurer_pw')  || undefined;
+  const adminPw = isPlatformClub() ? undefined : (localStorage.getItem('fc_admin_pw') || undefined);
+  const treasurerPw = isPlatformClub() ? undefined : (localStorage.getItem('fc_treasurer_pw') || undefined);
   photoTransforms[currentPhotoIdx] = { ...photoTransform };
   const meta = {
     myTeam: myTeamName || localStorage.getItem('fc_myteam') || '',

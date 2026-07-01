@@ -26,3 +26,9 @@ body.platform-club #app {
   color: #93c5fd;
   text-decoration: none;
 }
+
+#platformClubBarRole {
+  margin-left: auto;
+  opacity: 0.85;
+  font-size: 12px;
+}
