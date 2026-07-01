@@ -88,6 +88,30 @@ import {
 
 } from './members.js';
 
+import {
+
+  staffClubs,
+
+  loadOpenPosts,
+
+  loadPostDetail,
+
+  loadPostDetail,
+
+  createPost,
+
+  applyToPost,
+
+  respondApplication,
+
+  formatMatchWhen,
+
+  statusLabel,
+
+  rpcMatchingError,
+
+} from './matching.js?v=1';
+
 
 
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -127,6 +151,22 @@ let recruitingClubs = [];
 let showRecruitingList = false;
 
 let memberMsg = '';
+
+let matchingPosts = [];
+
+let matchingLoading = false;
+
+let matchingMsg = '';
+
+let matchingRegionFilter = '';
+
+let matchingPostId = null;
+
+let matchingDetail = null;
+
+let matchingDetailLoading = false;
+
+let createMatchingOpen = false;
 
 
 
@@ -494,6 +534,18 @@ function setTab(tab) {
 
   });
 
+  if (tab === 'matching') {
+
+    matchingPostId = null;
+
+    matchingDetail = null;
+
+    createMatchingOpen = false;
+
+    loadMatchingList();
+
+  }
+
   renderMain();
 
 }
@@ -556,6 +608,268 @@ function renderHome() {
 
 
 
+async function loadMatchingList() {
+
+  if (!getUserId()) return;
+
+  matchingLoading = true;
+
+  matchingMsg = '';
+
+  renderMain();
+
+  try {
+
+    matchingPosts = await loadOpenPosts(matchingRegionFilter);
+
+  } catch (e) {
+
+    matchingPosts = [];
+
+    matchingMsg = rpcMatchingError(e);
+
+  }
+
+  matchingLoading = false;
+
+  renderMain();
+
+}
+
+
+
+async function openMatchingDetail(postId) {
+
+  matchingPostId = postId;
+
+  matchingDetail = null;
+
+  matchingDetailLoading = true;
+
+  matchingMsg = '';
+
+  renderMain();
+
+  try {
+
+    matchingDetail = await loadPostDetail(postId);
+
+  } catch (e) {
+
+    matchingMsg = rpcMatchingError(e);
+
+    matchingPostId = null;
+
+  }
+
+  matchingDetailLoading = false;
+
+  renderMain();
+
+}
+
+
+
+function renderMatchingCreate(staff) {
+
+  const clubOptions = staff.map((c) =>
+
+    `<option value="${c.id}" ${staff.length === 1 ? 'selected' : ''}>${escapeHtml(c.name)} (${escapeHtml(c.region)})</option>`,
+
+  ).join('');
+
+  const defaultRegion = staff[0]?.region || '';
+
+  return `
+
+    <section class="page-section">
+
+      <button type="button" class="btn-text" id="matchingBackToList">← 목록</button>
+
+      <h1 class="page-title">매칭 공고 올리기</h1>
+
+      <p class="page-muted">구단 홈 포메에 라인업이 있어야 등록됩니다. (MK08)</p>
+
+    </section>
+
+    <section class="card">
+
+      <div class="form-row">
+
+        <label class="form-label">구단</label>
+
+        <select class="form-input" id="matchCreateClub">${clubOptions}</select>
+
+      </div>
+
+      <div class="form-row">
+
+        <label class="form-label">경기 일시</label>
+
+        <input class="form-input" type="datetime-local" id="matchCreateWhen">
+
+      </div>
+
+      <div class="form-row">
+
+        <label class="form-label">장소</label>
+
+        <input class="form-input" type="text" id="matchCreatePlace" placeholder="잠실 보조경기장">
+
+      </div>
+
+      <div class="form-row">
+
+        <label class="form-label">지역 (시/도)</label>
+
+        <input class="form-input" type="text" id="matchCreateRegion" value="${escapeHtml(defaultRegion)}" placeholder="서울">
+
+      </div>
+
+      <div class="btn-row">
+
+        <button type="button" class="btn btn--primary" id="btnSubmitMatchingPost">공고 등록</button>
+
+        <button type="button" class="btn btn--outline" id="btnCancelMatchingPost">취소</button>
+
+      </div>
+
+      ${matchingMsg ? `<p class="page-warn">${escapeHtml(matchingMsg)}</p>` : ''}
+
+    </section>
+
+    <p class="legal-hint">매칭은 중개만 제공합니다. 일정·장소 책임은 구단에 있습니다. (LG01)</p>
+
+  `;
+
+}
+
+
+
+function renderMatchingDetailView() {
+
+  if (matchingDetailLoading) {
+
+    return '<p class="page-muted">불러오는 중...</p>';
+
+  }
+
+  if (!matchingDetail?.post) {
+
+    return `<p class="page-warn">${escapeHtml(matchingMsg || '공고를 찾을 수 없습니다.')}</p>`;
+
+  }
+
+  const { post, applications } = matchingDetail;
+
+  const host = post.clubs || {};
+
+  const myStaff = staffClubs(myClubs);
+
+  const isHostStaff = myStaff.some((c) => c.id === post.host_club_id);
+
+  const canApply = myStaff.filter((c) => c.id !== post.host_club_id);
+
+  const pendingApps = applications.filter((a) => a.status === 'pending');
+
+  const appRows = isHostStaff && pendingApps.length
+
+    ? pendingApps.map((a) => {
+
+        const ac = a.clubs || {};
+
+        return `
+
+          <div class="app-card" data-match-app-id="${a.id}">
+
+            <strong>${escapeHtml(ac.name || '구단')}</strong>
+
+            <p class="app-card__meta">${formatMatchWhen(a.created_at)} 신청</p>
+
+            <div class="btn-row">
+
+              <button type="button" class="btn btn--primary btn--sm" data-match-accept="${a.id}">승인 (MK03)</button>
+
+              <button type="button" class="btn btn--outline btn--sm" data-match-reject="${a.id}">거절</button>
+
+            </div>
+
+          </div>
+
+        `;
+
+      }).join('')
+
+    : isHostStaff ? '<p class="page-muted">대기 중인 신청 없음</p>' : '';
+
+
+
+  const applyBlock = !isHostStaff && canApply.length && post.status !== 'matched'
+
+    ? `
+
+      <div class="form-row">
+
+        <label class="form-label">신청 구단</label>
+
+        <select class="form-input" id="matchApplyClub">
+
+          ${canApply.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')}
+
+        </select>
+
+      </div>
+
+      <button type="button" class="btn btn--primary" id="btnApplyMatching">매칭 신청 (MK02)</button>
+
+      <p class="page-muted">신청 전 구단 홈 포메에 라인업을 짜 두세요. (MK09)</p>
+
+    `
+
+    : !isHostStaff && !canApply.length
+
+      ? '<p class="page-muted">신청하려면 owner/admin 역할의 구단이 필요합니다.</p>'
+
+      : '';
+
+
+
+  return `
+
+    <section class="page-section">
+
+      <button type="button" class="btn-text" id="matchingBackToList">← 목록</button>
+
+      <h1 class="page-title">${escapeHtml(host.name || '매칭 공고')}</h1>
+
+      <p class="page-muted">${escapeHtml(post.region)} · ${statusLabel(post.status)}</p>
+
+    </section>
+
+    <section class="card">
+
+      <p><strong>${formatMatchWhen(post.scheduled_at)}</strong></p>
+
+      <p>${escapeHtml(post.place)}</p>
+
+      <p class="match-card__meta">현재 ${pendingApps.length}팀 신청 (MK13)</p>
+
+      ${matchingMsg ? `<p class="page-warn">${escapeHtml(matchingMsg)}</p>` : ''}
+
+      ${applyBlock}
+
+    </section>
+
+    ${isHostStaff ? `<section class="card"><h2 class="card__title">신청 목록</h2>${appRows}</section>` : ''}
+
+    <p class="legal-hint">매칭은 중개만 제공합니다. (LG01)</p>
+
+  `;
+
+}
+
+
+
 function renderMatching() {
 
   if (!getUserId()) {
@@ -578,39 +892,99 @@ function renderMatching() {
 
   }
 
+
+
+  const staff = staffClubs(myClubs);
+
+
+
+  if (createMatchingOpen && staff.length) {
+
+    return renderMatchingCreate(staff);
+
+  }
+
+
+
+  if (matchingPostId) {
+
+    return `
+
+      <div id="matchingDetailRoot">${renderMatchingDetailView()}</div>
+
+    `;
+
+  }
+
+
+
+  const regions = [...new Set(matchingPosts.map((p) => p.region).filter(Boolean))];
+
+  const filterChips = [
+
+    `<button type="button" class="chip chip--btn ${!matchingRegionFilter ? 'is-active' : ''}" data-match-region="">전체</button>`,
+
+    ...regions.map((r) =>
+
+      `<button type="button" class="chip chip--btn ${matchingRegionFilter === r ? 'is-active' : ''}" data-match-region="${escapeHtml(r)}">${escapeHtml(r)}</button>`,
+
+    ),
+
+  ].join('');
+
+
+
+  const cards = matchingPosts.length
+
+    ? matchingPosts.map((p) => {
+
+        const host = p.clubs || {};
+
+        return `
+
+          <article class="match-card" data-match-post="${p.id}">
+
+            <h3>${escapeHtml(host.name || '구단')}</h3>
+
+            <p>${formatMatchWhen(p.scheduled_at)} · ${escapeHtml(p.place)}</p>
+
+            <p class="page-muted">${escapeHtml(p.region)}</p>
+
+            <p class="match-card__meta">${p.pendingCount || 0}팀 신청 · ${statusLabel(p.status)}</p>
+
+          </article>
+
+        `;
+
+      }).join('')
+
+    : matchingLoading
+
+      ? ''
+
+      : '<p class="page-muted">모집 중인 공고가 없습니다.</p>';
+
+
+
   return `
 
     <section class="page-section">
 
       <h1 class="page-title">매칭</h1>
 
-      <p class="page-muted">구단 연동 후 공고·신청 (MK08~, 다음 단계)</p>
+      <p class="page-muted">팀 간 경기 공고 · 신청 · 승인 (MK01~03)</p>
+
+      ${staff.length ? '<button type="button" class="btn btn--primary" id="btnOpenMatchingCreate">공고 올리기</button>' : '<p class="page-muted">공고는 구단 owner/admin만 올릴 수 있습니다.</p>'}
 
     </section>
 
-    <div class="filter-row">
+    <div class="filter-row">${filterChips}</div>
 
-      <span class="chip">지역 전체</span>
+    ${matchingMsg ? `<p class="page-warn">${escapeHtml(matchingMsg)}</p>` : ''}
 
-      <span class="chip">모집중</span>
+    ${matchingLoading ? '<p class="page-muted">공고 불러오는 중...</p>' : ''}
 
-    </div>
-
-    <div class="match-grid">
-
-      <article class="match-card match-card--demo">
-
-        <h3>데모 공고 (UI만)</h3>
-
-        <p>6/20 (토) 14:00 · 잠실 보조경기장 · 서울</p>
-
-        <p class="match-card__meta">Supabase matching_posts 연동 예정</p>
-
-      </article>
-
-      ${renderAdSlot('AD_MATCH_INLINE')}
-
-    </div>
+    <div class="match-grid">${cards}${!matchingLoading && matchingPosts.length ? renderAdSlot('AD_MATCH_INLINE') : ''}</div>
 
     ${renderAdSlot('AD_MATCH_FOOTER')}
 
@@ -1173,6 +1547,8 @@ function renderMain() {
     initMembersActions();
 
   }
+
+  if (activeTab === 'matching') initMatchingActions();
 
 }
 
@@ -1861,6 +2237,226 @@ function initNav() {
   $$('.nav-tab').forEach((el) => {
 
     el.addEventListener('click', () => setTab(el.dataset.tab));
+
+  });
+
+}
+
+
+
+function initMatchingActions() {
+
+  $('#btnOpenMatchingCreate')?.addEventListener('click', () => {
+
+    createMatchingOpen = true;
+
+    matchingMsg = '';
+
+    renderMain();
+
+  });
+
+
+
+  $('#matchingBackToList')?.addEventListener('click', () => {
+
+    matchingPostId = null;
+
+    matchingDetail = null;
+
+    createMatchingOpen = false;
+
+    matchingMsg = '';
+
+    loadMatchingList();
+
+  });
+
+
+
+  $('#btnCancelMatchingPost')?.addEventListener('click', () => {
+
+    createMatchingOpen = false;
+
+    matchingMsg = '';
+
+    renderMain();
+
+  });
+
+
+
+  $('#btnSubmitMatchingPost')?.addEventListener('click', async () => {
+
+    const clubId = $('#matchCreateClub')?.value;
+
+    const when = $('#matchCreateWhen')?.value;
+
+    const place = $('#matchCreatePlace')?.value?.trim();
+
+    const region = $('#matchCreateRegion')?.value?.trim();
+
+    if (!clubId || !when || !place || !region) {
+
+      matchingMsg = '구단·일시·장소·지역을 모두 입력해 주세요.';
+
+      renderMain();
+
+      return;
+
+    }
+
+    const scheduledAt = new Date(when).toISOString();
+
+    matchingMsg = '등록 중...';
+
+    renderMain();
+
+    try {
+
+      await createPost(clubId, scheduledAt, place, region);
+
+      createMatchingOpen = false;
+
+      matchingMsg = '공고를 등록했습니다.';
+
+      await loadMatchingList();
+
+    } catch (e) {
+
+      matchingMsg = rpcMatchingError(e);
+
+      renderMain();
+
+    }
+
+  });
+
+
+
+  $$('[data-match-region]').forEach((btn) => {
+
+    btn.addEventListener('click', () => {
+
+      matchingRegionFilter = btn.dataset.matchRegion || '';
+
+      loadMatchingList();
+
+    });
+
+  });
+
+
+
+  $$('[data-match-post]').forEach((el) => {
+
+    el.addEventListener('click', () => {
+
+      const id = Number(el.dataset.matchPost);
+
+      if (id) openMatchingDetail(id);
+
+    });
+
+  });
+
+
+
+  $('#btnApplyMatching')?.addEventListener('click', async () => {
+
+    const clubId = $('#matchApplyClub')?.value;
+
+    if (!clubId || !matchingPostId) return;
+
+    matchingMsg = '신청 중...';
+
+    renderMain();
+
+    try {
+
+      await applyToPost(matchingPostId, clubId);
+
+      matchingMsg = '매칭 신청을 보냈습니다.';
+
+      matchingDetail = await loadPostDetail(matchingPostId);
+
+      renderMain();
+
+    } catch (e) {
+
+      matchingMsg = rpcMatchingError(e);
+
+      renderMain();
+
+    }
+
+  });
+
+
+
+  $$('[data-match-accept]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const id = Number(btn.dataset.matchAccept);
+
+      if (!id) return;
+
+      if (!confirm('이 구단과 매칭을 확정할까요? 나머지 신청은 자동 거절됩니다. (MK12)')) return;
+
+      try {
+
+        await respondApplication(id, true);
+
+        matchingMsg = '매칭이 확정되었습니다. 양쪽 일정에 등록되었습니다. (MK05)';
+
+        matchingPostId = null;
+
+        matchingDetail = null;
+
+        await loadMatchingList();
+
+      } catch (e) {
+
+        matchingMsg = rpcMatchingError(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-match-reject]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const id = Number(btn.dataset.matchReject);
+
+      if (!id) return;
+
+      try {
+
+        await respondApplication(id, false);
+
+        matchingMsg = '신청을 거절했습니다.';
+
+        matchingDetail = await loadPostDetail(matchingPostId);
+
+        renderMain();
+
+      } catch (e) {
+
+        matchingMsg = rpcMatchingError(e);
+
+        renderMain();
+
+      }
+
+    });
 
   });
 

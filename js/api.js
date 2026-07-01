@@ -301,3 +301,72 @@ export async function apiKickMember(clubId, targetUserId) {
     body: { p_club_id: clubId, p_target_user_id: targetUserId },
   });
 }
+
+// ── matching (MK01~MK03) — RPC: setup/platform_setup/rpc-matching.sql ──
+
+export async function apiListMatchingPosts(regionFilter = '') {
+  let path =
+    'matching_posts?status=in.(open,applications_pending)&select=id,status,scheduled_at,place,region,host_club_id,created_at,clubs!host_club_id(name,slug)&order=scheduled_at.asc';
+  if (regionFilter) {
+    path += `&region=eq.${encodeURIComponent(regionFilter)}`;
+  }
+  return apiFetch(path, { requireAuth: true });
+}
+
+export async function apiGetMatchingPost(postId) {
+  const rows = await apiFetch(
+    `matching_posts?id=eq.${postId}&select=id,status,scheduled_at,place,region,host_club_id,matched_club_id,created_at,field_snapshot,clubs!host_club_id(name,slug,region)`,
+    { requireAuth: true },
+  );
+  return rows?.[0] || null;
+}
+
+export async function apiListMatchingApplications(postId) {
+  return apiFetch(
+    `matching_applications?post_id=eq.${postId}&select=id,status,created_at,applicant_club_id,created_by,clubs!applicant_club_id(name,slug)&order=created_at.asc`,
+    { requireAuth: true },
+  );
+}
+
+export async function apiCountPendingApplications(postId) {
+  const rows = await apiFetch(
+    `matching_applications?post_id=eq.${postId}&status=eq.pending&select=id`,
+    { requireAuth: true },
+  );
+  return (rows || []).length;
+}
+
+export async function apiCreateMatchingPost(clubId, scheduledAtIso, place, region) {
+  return apiFetch('rpc/create_matching_post', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_club_id: clubId,
+      p_scheduled_at: scheduledAtIso,
+      p_place: place,
+      p_region: region,
+    },
+  });
+}
+
+export async function apiApplyToMatchingPost(postId, applicantClubId) {
+  return apiFetch('rpc/apply_to_matching_post', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_post_id: postId,
+      p_applicant_club_id: applicantClubId,
+    },
+  });
+}
+
+export async function apiRespondMatchingApplication(applicationId, accept) {
+  return apiFetch('rpc/respond_matching_application', {
+    method: 'POST',
+    requireAuth: true,
+    body: {
+      p_application_id: applicationId,
+      p_accept: accept,
+    },
+  });
+}

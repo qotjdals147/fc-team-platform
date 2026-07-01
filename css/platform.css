@@ -206,6 +206,21 @@ body {
   border: 1px solid var(--border);
   font-size: 0.8rem;
 }
+.chip--btn {
+  cursor: pointer;
+  font: inherit;
+}
+.chip--btn.is-active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.match-card[data-match-post] {
+  cursor: pointer;
+}
+.match-card[data-match-post]:hover {
+  border-color: var(--primary);
+}
 
 .match-grid {
   display: flex;

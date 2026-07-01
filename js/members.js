@@ -126,6 +126,9 @@ export function rpcErrorMessage(e) {
   if (msg.includes('cannot kick owner')) return '구단주는 강퇴할 수 없습니다.';
   if (msg.includes('cannot kick yourself')) return '본인은 강퇴할 수 없습니다.';
   if (msg.includes('admin cannot kick')) return '관리자는 다른 관리자·구단주를 강퇴할 수 없습니다.';
+  if (msg.includes('club_members_club_id_user_id_key') || msg.includes('duplicate key')) {
+    return '재가입 처리 오류 — Supabase에서 platform-rpc-members-rejoin SQL을 실행해 주세요.';
+  }
   if (msg.includes('JWT expired') || msg.includes('로그인이 만료')) {
     return '로그인이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.';
   }
