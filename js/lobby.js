@@ -18,7 +18,7 @@ import {
 
   stopNotificationsRealtime,
 
-} from './notifications.js';
+} from './notifications.js?v=2';
 
 import {
 
