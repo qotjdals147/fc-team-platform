@@ -96,8 +96,6 @@ import {
 
   loadPostDetail,
 
-  loadPostDetail,
-
   createPost,
 
   applyToPost,
