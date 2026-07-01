@@ -15,6 +15,8 @@ import {
   apiSearchProfileByPlatformId,
   apiSetClubRecruiting,
   apiUpdateMemberRole,
+  apiLeaveClub,
+  apiKickMember,
 } from './api.js';
 import { getUserId } from './auth.js';
 import { refreshNotifications } from './notifications.js';
@@ -29,6 +31,19 @@ export function canChangeRoles(role) {
 
 export function canToggleRecruiting(role) {
   return role === 'owner';
+}
+
+export function canLeaveClub(role) {
+  return role && role !== 'owner';
+}
+
+/** actorRole 기준으로 targetRole 강퇴 가능 여부 */
+export function canKickMember(actorRole, targetRole, actorUserId, targetUserId) {
+  if (!actorRole || actorRole === 'member' || actorRole === 'treasurer') return false;
+  if (!targetRole || targetRole === 'owner') return false;
+  if (actorUserId === targetUserId) return false;
+  if (actorRole === 'admin' && targetRole === 'admin') return false;
+  return true;
 }
 
 export async function loadClubPanel(clubId) {
@@ -84,6 +99,16 @@ export async function changeMemberRole(clubId, userId, role) {
   await apiUpdateMemberRole(clubId, userId, role);
 }
 
+export async function leaveClub(clubId) {
+  await apiLeaveClub(clubId);
+  await refreshNotifications();
+}
+
+export async function kickMember(clubId, userId) {
+  await apiKickMember(clubId, userId);
+  await refreshNotifications();
+}
+
 export function memberLabel(row) {
   const p = row.profiles || {};
   return p.legal_name || p.platform_id || row.user_id?.slice(0, 8) || '회원';
@@ -97,6 +122,10 @@ export function rpcErrorMessage(e) {
   if (msg.includes('invitation already pending')) return '이미 초대 대기 중입니다.';
   if (msg.includes('application already pending')) return '이미 신청 대기 중입니다.';
   if (msg.includes('club not recruiting')) return '모집 중인 구단이 아닙니다.';
+  if (msg.includes('owner cannot leave')) return '구단주는 탈퇴할 수 없습니다.';
+  if (msg.includes('cannot kick owner')) return '구단주는 강퇴할 수 없습니다.';
+  if (msg.includes('cannot kick yourself')) return '본인은 강퇴할 수 없습니다.';
+  if (msg.includes('admin cannot kick')) return '관리자는 다른 관리자·구단주를 강퇴할 수 없습니다.';
   if (msg.includes('JWT expired') || msg.includes('로그인이 만료')) {
     return '로그인이 만료되었습니다. 로그아웃 후 다시 로그인해 주세요.';
   }

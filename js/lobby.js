@@ -12,6 +12,12 @@ import {
 
   refreshNotifications,
 
+  onNotificationsUpdated,
+
+  syncNotificationsRealtime,
+
+  stopNotificationsRealtime,
+
 } from './notifications.js';
 
 import {
@@ -50,6 +56,10 @@ import {
 
   canToggleRecruiting,
 
+  canLeaveClub,
+
+  canKickMember,
+
   loadClubPanel,
 
   loadMyInvitations,
@@ -67,6 +77,10 @@ import {
   respondApp,
 
   changeMemberRole,
+
+  leaveClub,
+
+  kickMember,
 
   memberLabel,
 
@@ -198,6 +212,8 @@ async function refreshSessionData() {
 
     myClubs = [];
 
+    stopNotificationsRealtime();
+
     await refreshNotifications();
 
     return;
@@ -231,6 +247,8 @@ async function refreshSessionData() {
   }
 
   await refreshNotifications();
+
+  await syncNotificationsRealtime();
 
   updateBadge();
 
@@ -648,6 +666,8 @@ function renderMemberPanel(club) {
 
   const canRecruit = canToggleRecruiting(club.role);
 
+  const uid = getUserId();
+
 
 
   const memberRows = members.map((m) => {
@@ -656,7 +676,7 @@ function renderMemberPanel(club) {
 
     const isOwner = m.role === 'owner';
 
-    const roleSelect = canRoles && !isOwner && m.user_id !== getUserId()
+    const roleSelect = canRoles && !isOwner && m.user_id !== uid
 
       ? `<select class="member-role-select" data-member-role data-user-id="${m.user_id}">
 
@@ -670,7 +690,13 @@ function renderMemberPanel(club) {
 
       : `<span class="tag">${roleLabel(m.role)}</span>`;
 
-    return `<li><span>${escapeHtml(label)}</span>${roleSelect}</li>`;
+    const kickBtn = canKickMember(club.role, m.role, uid, m.user_id)
+
+      ? `<button type="button" class="btn btn--outline btn--sm" data-kick-member data-club-id="${club.id}" data-user-id="${m.user_id}">강퇴</button>`
+
+      : '';
+
+    return `<li class="member-list__row"><span>${escapeHtml(label)}</span><span class="member-list__actions">${roleSelect}${kickBtn}</span></li>`;
 
   }).join('');
 
@@ -839,6 +865,8 @@ function renderClubs() {
               <a class="btn btn--primary" href="club/index.html?slug=${encodeURIComponent(c.slug)}" target="_blank" rel="noopener">홈피 가기</a>
 
               ${canManageMembers(c.role) ? `<button type="button" class="btn btn--outline" data-manage-club="${c.id}">${manageClubId === c.id ? '멤버 관리 닫기' : '멤버 관리'}</button>` : ''}
+
+              ${canLeaveClub(c.role) ? `<button type="button" class="btn btn--outline" data-leave-club="${c.id}">구단 탈퇴</button>` : ''}
 
             </div>
 
@@ -1334,6 +1362,80 @@ function initMembersActions() {
 
 
 
+  $$('[data-leave-club]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const clubId = btn.dataset.leaveClub;
+
+      if (!clubId) return;
+
+      if (!confirm('이 구단에서 탈퇴하시겠습니까?')) return;
+
+      try {
+
+        await leaveClub(clubId);
+
+        memberMsg = '구단에서 탈퇴했습니다.';
+
+        manageClubId = null;
+
+        clubPanel = null;
+
+        await refreshSessionData();
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
+  $$('[data-kick-member]').forEach((btn) => {
+
+    btn.addEventListener('click', async () => {
+
+      const clubId = btn.dataset.clubId;
+
+      const userId = btn.dataset.userId;
+
+      if (!clubId || !userId) return;
+
+      if (!confirm('이 멤버를 강퇴하시겠습니까?')) return;
+
+      try {
+
+        await kickMember(clubId, userId);
+
+        memberMsg = '강퇴했습니다.';
+
+        clubPanel = await loadClubPanel(clubId);
+
+        renderMain();
+
+      } catch (e) {
+
+        memberMsg = rpcErrorMessage(e);
+
+        renderMain();
+
+      }
+
+    });
+
+  });
+
+
+
   $$('[data-app-approve]').forEach((btn) => {
 
     btn.addEventListener('click', async () => {
@@ -1604,6 +1706,8 @@ function initProfileAuth() {
 
   $('#btnLogout')?.addEventListener('click', async () => {
 
+    stopNotificationsRealtime();
+
     await signOut();
 
     profile = null;
@@ -1771,6 +1875,32 @@ async function init() {
   initSideRails();
 
   initNav();
+
+  onNotificationsUpdated(async () => {
+
+    const uid = getUserId();
+
+    if (uid) {
+
+      try {
+
+        myInvitations = await loadMyInvitations();
+
+      } catch {
+
+        myInvitations = [];
+
+      }
+
+    }
+
+    updateBadge();
+
+    if (panelOpen) mountNotificationUI();
+
+    renderMain();
+
+  });
 
 
 

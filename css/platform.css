@@ -426,6 +426,7 @@ body.no-ads .main { max-width: 1400px; }
   font-size: 0.9rem;
 }
 .member-list li:last-child { border-bottom: none; }
+.member-list__actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .member-role-select {
   padding: 4px 8px;
   border-radius: 8px;

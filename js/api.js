@@ -284,3 +284,20 @@ export async function apiUpdateMemberRole(clubId, targetUserId, newRole) {
     },
   });
 }
+
+/** RPC leave_club / kick_member — SQL: setup/platform_setup/rpc-leave-kick.sql */
+export async function apiLeaveClub(clubId) {
+  return apiFetch('rpc/leave_club', {
+    method: 'POST',
+    requireAuth: true,
+    body: { p_club_id: clubId },
+  });
+}
+
+export async function apiKickMember(clubId, targetUserId) {
+  return apiFetch('rpc/kick_member', {
+    method: 'POST',
+    requireAuth: true,
+    body: { p_club_id: clubId, p_target_user_id: targetUserId },
+  });
+}
