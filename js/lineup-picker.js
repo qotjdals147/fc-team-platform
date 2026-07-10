@@ -3,6 +3,11 @@
  */
 
 import { apiLoadClubPlayers, apiLoadClubSaves, apiSaveClubField } from './api.js';
+import {
+  mountLineupFieldPreview,
+  destroyLineupFieldPreview,
+  firstQuarterWithLineup,
+} from './lineup-field-view.js';
 
 /** @typedef {'create'|'apply'} LineupMode */
 
@@ -17,6 +22,7 @@ let _saves = [];
 /** @type {Map<number, {name:string,jersey?:number}>} */
 let _playerMap = new Map();
 let _selectedSaveId = null;
+let _activeQuarter = 1;
 let _loading = false;
 let _loadError = '';
 
@@ -49,39 +55,20 @@ function saveMetaLine(save) {
   return `${formation} · ${players.size}명${hasMultiQ ? ' · 4쿼터' : ''}${date}`;
 }
 
-function playerLine(token) {
-  const p = _playerMap.get(token.pid);
-  const jersey = p?.jersey != null ? `#${p.jersey} ` : '';
-  const name = p?.name || `선수 ${token.pid}`;
-  const pos = token.pos || '';
-  return `${pos} ${jersey}${name}`.trim();
-}
-
-function previewHtml(save) {
-  if (!save) return '<p class="page-muted">포메이션을 선택하면 미리보기가 표시됩니다.</p>';
-
-  const blocks = [];
-  for (let q = 1; q <= 4; q += 1) {
-    const tokens = save[`q${q}tokens`] || (q === 1 ? save.tokens : null) || [];
-    if (!tokens.length) continue;
-    const formation = save[`q${q}formation`] || (q === 1 ? save.formation : '') || '';
-    const rows = tokens
-      .slice()
-      .sort((a, b) => (a.slotIdx ?? 0) - (b.slotIdx ?? 0))
-      .map((t) => `<li>${escapeHtml(playerLine(t))}</li>`)
-      .join('');
-    blocks.push(`
-      <div class="lineup-preview-q">
-        <div class="lineup-preview-q__title">${q}쿼터 ${escapeHtml(formation || '—')}</div>
-        <ul class="lineup-preview-list">${rows}</ul>
-      </div>`);
+function previewMount(host, save) {
+  const previewHost = host.querySelector('#lineupFieldPreviewHost');
+  if (!previewHost) return;
+  destroyLineupFieldPreview(previewHost);
+  if (!save) {
+    previewHost.innerHTML = '<p class="page-muted">포메이션을 선택하면 필드 미리보기가 표시됩니다.</p>';
+    return;
   }
-
-  return `
-    <div class="lineup-preview">
-      <p class="lineup-preview__meta">${escapeHtml(saveMetaLine(save))}</p>
-      ${blocks.join('')}
-    </div>`;
+  mountLineupFieldPreview(previewHost, {
+    save,
+    playerMap: _playerMap,
+    activeQuarter: _activeQuarter,
+    onQuarterChange: (q) => { _activeQuarter = q; },
+  });
 }
 
 function clubHomeLink() {
@@ -119,9 +106,9 @@ function renderSelectorHtml() {
           ${options}
         </select>
       </div>
-      ${previewHtml(selected)}
+      <div id="lineupFieldPreviewHost"><p class="page-muted">미리보기 로딩…</p></div>
       <p class="lineup-picker__count is-ok">선택한 포메가 등록·신청 시 스냅샷으로 잠깁니다. (MK08)</p>
-      <p class="page-muted">로비에서는 편집하지 않습니다. 변경은 구단 홈에서 저장 후 다시 불러오세요.</p>
+      <p class="page-muted">로비에서는 편집하지 않습니다. 쿼터별 OVR·배치는 구단 홈과 동일하게 표시됩니다.</p>
       <div class="lineup-picker__actions">${clubHomeLink()}</div>
     </div>`;
 }
@@ -129,9 +116,13 @@ function renderSelectorHtml() {
 function bindSelectorEvents(host) {
   host.querySelector('#lineupSaveSelect')?.addEventListener('change', (e) => {
     _selectedSaveId = Number(e.target.value) || null;
+    const save = getSelectedSave();
+    _activeQuarter = save ? firstQuarterWithLineup(save) : 1;
     host.innerHTML = renderSelectorHtml();
     bindSelectorEvents(host);
+    previewMount(host, save);
   });
+  previewMount(host, getSelectedSave());
 }
 
 function fieldPayloadFromSave(save) {
@@ -162,6 +153,7 @@ async function loadClubSavedLineups(teamId, clubSlug) {
   _loading = true;
   _loadError = '';
   _selectedSaveId = null;
+  _activeQuarter = 1;
   try {
     const [players, saves] = await Promise.all([
       apiLoadClubPlayers(teamId),
@@ -170,7 +162,10 @@ async function loadClubSavedLineups(teamId, clubSlug) {
     _playerMap = new Map((players || []).map((p) => [p.id, p]));
     _saves = saves || [];
     const usable = _saves.filter(saveHasLineup);
-    if (usable.length) _selectedSaveId = usable[0].id;
+    if (usable.length) {
+      _selectedSaveId = usable[0].id;
+      _activeQuarter = firstQuarterWithLineup(usable[0]);
+    }
   } catch (e) {
     _loadError = e?.message || '저장 포메 불러오기 실패';
     _saves = [];
