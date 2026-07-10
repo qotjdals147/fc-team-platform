@@ -323,7 +323,7 @@ export async function apiGetMatchingPost(postId) {
 
 export async function apiListMatchingApplications(postId) {
   return apiFetch(
-    `matching_applications?post_id=eq.${postId}&select=id,status,created_at,applicant_club_id,created_by,clubs!applicant_club_id(name,slug)&order=created_at.asc`,
+    `matching_applications?post_id=eq.${postId}&select=id,status,created_at,applicant_club_id,created_by,field_snapshot,clubs!applicant_club_id(name,slug,team_id)&order=created_at.asc`,
     { requireAuth: true },
   );
 }

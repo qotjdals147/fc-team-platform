@@ -118,6 +118,11 @@ import {
   lineupValidationMessage,
 } from './lineup-picker.js';
 
+import {
+  mountSnapshotLineupPreview,
+  snapshotHasLineup,
+} from './lineup-field-view.js';
+
 const $ = (sel, root = document) => root.querySelector(sel);
 
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -165,6 +170,11 @@ let matchingMsg = '';
 let matchingRegionFilter = '';
 
 let matchingPostId = null;
+
+/** @type {Set<number>} MK19 — 펼쳐진 신청 라인업 */
+const expandedAppLineups = new Set();
+
+let appLineupToggleBound = false;
 
 let matchingDetail = null;
 
@@ -794,6 +804,28 @@ function renderMatchingDetailView() {
 
         const ac = a.clubs || {};
 
+        const hasLineup = snapshotHasLineup(a.field_snapshot);
+
+        const isOpen = expandedAppLineups.has(a.id);
+
+        const lineupToggle = hasLineup
+
+          ? `
+
+            <button type="button" class="btn btn--outline btn--sm btn-toggle-app-lineup" data-app-lineup-toggle="${a.id}" aria-expanded="${isOpen ? 'true' : 'false'}">
+
+              ${isOpen ? '상대 포메이션 접기' : '상대 포메이션 보기'}
+
+            </button>
+
+            <div class="app-lineup-panel" id="appLineupPanel-${a.id}" ${isOpen ? '' : 'hidden'}>
+
+              <div class="app-lineup-mount" data-app-lineup-mount="${a.id}"></div>
+
+            </div>`
+
+          : '<p class="page-muted app-lineup-empty">라인업 스냅샷 없음 (구버전 신청)</p>';
+
         return `
 
           <div class="app-card" data-match-app-id="${a.id}">
@@ -809,6 +841,8 @@ function renderMatchingDetailView() {
               <button type="button" class="btn btn--outline btn--sm" data-match-reject="${a.id}">거절</button>
 
             </div>
+
+            ${lineupToggle}
 
           </div>
 
@@ -1573,6 +1607,7 @@ function renderMain() {
   }
 
   if (activeTab === 'matching') {
+    ensureAppLineupToggleHandler();
     initMatchingActions();
     const staff = staffClubs(myClubs);
     if (createMatchingOpen) {
@@ -1581,12 +1616,61 @@ function renderMain() {
       const post = matchingDetail.post;
       const myStaff = staff;
       const canApply = myStaff.filter((c) => c.id !== post?.host_club_id);
+      const isHostStaff = myStaff.some((c) => c.id === post?.host_club_id);
       if (canApply.length && post?.status !== 'matched') {
         void mountLineupPickerForApply(staff);
+      }
+      if (isHostStaff && expandedAppLineups.size) {
+        void remountExpandedAppLineups();
       }
     }
   }
 
+}
+
+
+
+function ensureAppLineupToggleHandler() {
+  if (appLineupToggleBound) return;
+  appLineupToggleBound = true;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-app-lineup-toggle]');
+    if (!btn || activeTab !== 'matching') return;
+    const appId = Number(btn.dataset.appLineupToggle);
+    if (!appId) return;
+    const panel = document.getElementById(`appLineupPanel-${appId}`);
+    if (!panel) return;
+
+    const opening = panel.hidden;
+    if (opening) {
+      expandedAppLineups.add(appId);
+      panel.hidden = false;
+      btn.textContent = '상대 포메이션 접기';
+      btn.setAttribute('aria-expanded', 'true');
+      const mount = panel.querySelector('[data-app-lineup-mount]');
+      const app = matchingDetail?.applications?.find((a) => a.id === appId);
+      if (mount && app) {
+        void mountSnapshotLineupPreview(mount, app.field_snapshot, app.clubs?.team_id);
+      }
+    } else {
+      expandedAppLineups.delete(appId);
+      panel.hidden = true;
+      btn.textContent = '상대 포메이션 보기';
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
+
+
+
+async function remountExpandedAppLineups() {
+  if (!matchingDetail?.applications) return;
+  for (const appId of expandedAppLineups) {
+    const app = matchingDetail.applications.find((a) => a.id === appId);
+    const mount = document.querySelector(`[data-app-lineup-mount="${appId}"]`);
+    if (!app || !mount) continue;
+    await mountSnapshotLineupPreview(mount, app.field_snapshot, app.clubs?.team_id);
+  }
 }
 
 
@@ -2300,6 +2384,8 @@ function initMatchingActions() {
     matchingPostId = null;
 
     matchingDetail = null;
+
+    expandedAppLineups.clear();
 
     createMatchingOpen = false;
 

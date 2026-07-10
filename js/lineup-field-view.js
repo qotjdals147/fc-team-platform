@@ -2,6 +2,7 @@
  * MK18/MK19 — 읽기 전용 포메 필드 뷰 (구단 홈 포메 탭과 동일한 시각)
  */
 
+import { apiLoadClubPlayers } from './api.js';
 import { FORMATIONS, FORMATION_POS_LABELS, SLOT_LABEL_MATCH } from './formations-data.js';
 
 const POS_BG = {
@@ -156,6 +157,60 @@ export function firstQuarterWithLineup(save) {
     if (getQuarterData(save, q).tokens.length > 0) return q;
   }
   return 1;
+}
+
+/** matching_posts / matching_applications field_snapshot → saves 형식 */
+export function snapshotToSave(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const d = snapshot.data && typeof snapshot.data === 'object' ? snapshot.data : {};
+  return {
+    q1formation: d.q1formation || '',
+    q1tokens: Array.isArray(snapshot.q1tokens) ? snapshot.q1tokens : [],
+    q2formation: d.q2formation || '',
+    q2tokens: Array.isArray(snapshot.q2tokens) ? snapshot.q2tokens : [],
+    q3formation: d.q3formation || '',
+    q3tokens: Array.isArray(snapshot.q3tokens) ? snapshot.q3tokens : [],
+    q4formation: d.q4formation || '',
+    q4tokens: Array.isArray(snapshot.q4tokens) ? snapshot.q4tokens : [],
+  };
+}
+
+export function saveHasLineup(save) {
+  if (!save) return false;
+  for (let q = 1; q <= 4; q += 1) {
+    if (getQuarterData(save, q).tokens.length > 0) return true;
+  }
+  return false;
+}
+
+export function snapshotHasLineup(snapshot) {
+  return saveHasLineup(snapshotToSave(snapshot));
+}
+
+/** @param {HTMLElement} hostEl */
+export async function mountSnapshotLineupPreview(hostEl, snapshot, teamId) {
+  if (!hostEl) return;
+  const save = snapshotToSave(snapshot);
+  if (!saveHasLineup(save)) {
+    hostEl.innerHTML = '<p class="page-muted">신청 시점 라인업 스냅샷이 없습니다.</p>';
+    return;
+  }
+  hostEl.innerHTML = '<p class="page-muted">라인업 불러오는 중…</p>';
+  let playerMap = new Map();
+  if (teamId) {
+    try {
+      const players = await apiLoadClubPlayers(teamId);
+      playerMap = new Map((players || []).map((p) => [p.id, p]));
+    } catch {
+      playerMap = new Map();
+    }
+  }
+  destroyLineupFieldPreview(hostEl);
+  mountLineupFieldPreview(hostEl, {
+    save,
+    playerMap,
+    activeQuarter: firstQuarterWithLineup(save),
+  });
 }
 
 function tokenXY(t, formation) {
