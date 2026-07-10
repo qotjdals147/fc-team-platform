@@ -110,7 +110,13 @@ import {
 
 } from './matching.js?v=1';
 
-
+import {
+  mountLineupPickerForCreate,
+  mountLineupPickerForApply,
+  saveLineupBeforePost,
+  lineupIsReady,
+  lineupValidationMessage,
+} from './lineup-picker.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 
@@ -686,7 +692,7 @@ function renderMatchingCreate(staff) {
 
       <h1 class="page-title">매칭 공고 올리기</h1>
 
-      <p class="page-muted">구단 홈 포메에 라인업이 있어야 등록됩니다. (MK08)</p>
+      <p class="page-muted">구단 홈에서 저장한 포메이션을 선택해 등록합니다. (MK18)</p>
 
     </section>
 
@@ -723,6 +729,18 @@ function renderMatchingCreate(staff) {
         <input class="form-input" type="text" id="matchCreateRegion" value="${escapeHtml(defaultRegion)}" placeholder="서울">
 
       </div>
+
+    </section>
+
+    <section class="card">
+
+      <h2 class="card__title">포메이션 선택</h2>
+
+      <div id="matchLineupPicker"><p class="page-muted">로딩…</p></div>
+
+    </section>
+
+    <section class="card">
 
       <div class="btn-row">
 
@@ -818,9 +836,17 @@ function renderMatchingDetailView() {
 
       </div>
 
+      <div class="form-row">
+
+        <label class="form-label">포메이션 선택</label>
+
+        <div id="matchApplyLineupPicker"><p class="page-muted">로딩…</p></div>
+
+      </div>
+
       <button type="button" class="btn btn--primary" id="btnApplyMatching">매칭 신청 (MK02)</button>
 
-      <p class="page-muted">신청 전 구단 홈 포메에 라인업을 짜 두세요. (MK09)</p>
+      <p class="page-muted">구단 홈에서 저장한 포메이션만 선택할 수 있습니다. (MK20)</p>
 
     `
 
@@ -1546,7 +1572,20 @@ function renderMain() {
 
   }
 
-  if (activeTab === 'matching') initMatchingActions();
+  if (activeTab === 'matching') {
+    initMatchingActions();
+    const staff = staffClubs(myClubs);
+    if (createMatchingOpen) {
+      void mountLineupPickerForCreate(staff);
+    } else if (matchingPostId && matchingDetail && !matchingDetailLoading) {
+      const post = matchingDetail.post;
+      const myStaff = staff;
+      const canApply = myStaff.filter((c) => c.id !== post?.host_club_id);
+      if (canApply.length && post?.status !== 'matched') {
+        void mountLineupPickerForApply(staff);
+      }
+    }
+  }
 
 }
 
@@ -2284,6 +2323,16 @@ function initMatchingActions() {
 
 
 
+  $('#matchCreateClub')?.addEventListener('change', () => {
+
+    const staff = staffClubs(myClubs);
+
+    void mountLineupPickerForCreate(staff);
+
+  });
+
+
+
   $('#btnSubmitMatchingPost')?.addEventListener('click', async () => {
 
     const clubId = $('#matchCreateClub')?.value;
@@ -2304,6 +2353,16 @@ function initMatchingActions() {
 
     }
 
+    if (!lineupIsReady()) {
+
+      matchingMsg = lineupValidationMessage() || '라인업을 확인해 주세요.';
+
+      renderMain();
+
+      return;
+
+    }
+
     const scheduledAt = new Date(when).toISOString();
 
     matchingMsg = '등록 중...';
@@ -2311,6 +2370,8 @@ function initMatchingActions() {
     renderMain();
 
     try {
+
+      await saveLineupBeforePost();
 
       await createPost(clubId, scheduledAt, place, region);
 
@@ -2360,17 +2421,39 @@ function initMatchingActions() {
 
 
 
+  $('#matchApplyClub')?.addEventListener('change', () => {
+
+    const staff = staffClubs(myClubs);
+
+    void mountLineupPickerForApply(staff);
+
+  });
+
+
+
   $('#btnApplyMatching')?.addEventListener('click', async () => {
 
     const clubId = $('#matchApplyClub')?.value;
 
     if (!clubId || !matchingPostId) return;
 
+    if (!lineupIsReady()) {
+
+      matchingMsg = lineupValidationMessage() || '포메이션을 선택해 주세요.';
+
+      renderMain();
+
+      return;
+
+    }
+
     matchingMsg = '신청 중...';
 
     renderMain();
 
     try {
+
+      await saveLineupBeforePost();
 
       await applyToPost(matchingPostId, clubId);
 

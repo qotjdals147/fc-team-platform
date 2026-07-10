@@ -456,6 +456,18 @@ body.no-ads .main { max-width: 1400px; }
 .app-card { margin-bottom: 10px; }
 .app-card__meta { font-size: 0.8rem; color: var(--muted); }
 
+/* MK18/MK20 — 로비 저장 포메 선택 (읽기 전용) */
+.lineup-select { display: flex; flex-direction: column; gap: 10px; }
+.lineup-picker__actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lineup-picker__count { margin: 0; font-size: 0.85rem; color: var(--muted); }
+.lineup-picker__count.is-ok { color: var(--primary); font-weight: 600; }
+.lineup-preview { margin-top: 4px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface, #fafafa); }
+.lineup-preview__meta { margin: 0 0 8px; font-size: 0.85rem; color: var(--muted); }
+.lineup-preview-q { margin-bottom: 8px; }
+.lineup-preview-q__title { font-size: 0.8rem; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
+.lineup-preview-list { margin: 0; padding-left: 18px; font-size: 0.85rem; }
+.lineup-preview-list li { margin: 2px 0; }
+
   .notif-panel {
     right: 12px;
     left: 12px;

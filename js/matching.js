@@ -89,7 +89,7 @@ export function statusLabel(status) {
 export function rpcMatchingError(e) {
   const msg = e?.message || '';
   if (msg.includes('field snapshot empty')) {
-    return '포메(라인업)이 비어 있습니다. 구단 홈 → 포메 탭에서 명단을 짠 뒤 다시 시도해 주세요. (MK08)';
+    return '포메(라인업)이 비어 있습니다. 구단 홈 → 포메 탭에서 라인업을 저장한 뒤, 공고·신청 화면에서 해당 포메를 선택해 주세요. (MK08)';
   }
   if (msg.includes('post not open') || msg.includes('already matched')) {
     return '이미 마감된 공고입니다. (MK15)';

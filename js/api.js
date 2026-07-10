@@ -370,3 +370,74 @@ export async function apiRespondMatchingApplication(applicationId, accept) {
     },
   });
 }
+
+// ── 구단 홈 field/saves/players (MK18·MK20 로비 포메 선택) ──
+
+export async function apiLoadClubSaves(teamId) {
+  const rows = await apiFetch(`saves?team_id=eq.${teamId}&select=id,name,data&order=id.desc`, {
+    requireAuth: true,
+  });
+  return (rows || []).map((r) => {
+    const d = r.data && typeof r.data === 'object' ? r.data : {};
+    return { id: r.id, name: r.name || d.name || '', ...d };
+  });
+}
+
+export async function apiLoadClubPlayers(teamId) {
+  return apiFetch(
+    `players?team_id=eq.${teamId}&roster_active=eq.true&select=id,name,jersey,positions,ovr,form_bonus,is_mercenary&order=id.asc`,
+    { requireAuth: true },
+  );
+}
+
+export async function apiLoadClubField(teamId) {
+  const rows = await apiFetch(`field?team_id=eq.${teamId}&id=eq.1&select=*`, { requireAuth: true });
+  const r = rows?.[0];
+  if (!r) {
+    return {
+      q1formation: '4-3-3',
+      q1tokens: [],
+      q2formation: '',
+      q2tokens: [],
+      q3formation: '',
+      q3tokens: [],
+      q4formation: '',
+      q4tokens: [],
+    };
+  }
+  const d = r.data && typeof r.data === 'object' ? r.data : {};
+  return {
+    q1formation: d.q1formation || r.q1formation || '4-3-3',
+    q1tokens: r.q1tokens || d.q1tokens || [],
+    q2formation: d.q2formation || r.q2formation || '',
+    q2tokens: r.q2tokens || d.q2tokens || [],
+    q3formation: d.q3formation || r.q3formation || '',
+    q3tokens: r.q3tokens || d.q3tokens || [],
+    q4formation: d.q4formation || r.q4formation || '',
+    q4tokens: r.q4tokens || d.q4tokens || [],
+  };
+}
+
+export async function apiSaveClubField(teamId, field) {
+  const row = {
+    team_id: teamId,
+    id: 1,
+    q1tokens: field.q1tokens || [],
+    q2tokens: field.q2tokens || [],
+    q3tokens: field.q3tokens || [],
+    q4tokens: field.q4tokens || [],
+    data: {
+      q1formation: field.q1formation || '4-3-3',
+      q2formation: field.q2formation || '',
+      q3formation: field.q3formation || '',
+      q4formation: field.q4formation || '',
+      activeQuarter: field.activeQuarter || 1,
+    },
+  };
+  return apiFetch('field', {
+    method: 'POST',
+    requireAuth: true,
+    prefer: 'resolution=merge-duplicates,return=representation',
+    body: row,
+  });
+}
