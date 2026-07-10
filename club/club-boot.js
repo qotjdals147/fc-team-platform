@@ -89,9 +89,9 @@ async function main() {
 
   try {
     await loadScript('data.js?v=1');
-    await loadScript('club-api.js?v=1');
+    await loadScript('club-api.js?v=2');
     await loadScript('club-platform.js?v=4');
-    await loadScript('app.js?v=4');
+    await loadScript('app.js?v=5');
   } catch (e) {
     showGate(e.message, '../index.html', '플랫폼으로');
   }

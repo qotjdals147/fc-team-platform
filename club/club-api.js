@@ -84,6 +84,7 @@
   function playerFromDb(r) {
     return {
       id: r.id,
+      userId: r.user_id || null,
       name: r.name,
       jersey: r.jersey,
       positions: r.positions || [],
@@ -94,7 +95,7 @@
   }
 
   function playerToDb(p) {
-    return {
+    const row = {
       id: p.id,
       team_id: TEAM_ID,
       name: p.name,
@@ -105,6 +106,8 @@
       is_mercenary: !!p.isMercenary,
       roster_active: true,
     };
+    if (p.userId) row.user_id = p.userId;
+    return row;
   }
 
   function unpackJsonbRow(r) {
@@ -167,7 +170,11 @@
   }
 
   async function sbSelect(table) {
-    const res = await fetch(sbUrl(table, `?${teamFilter()}&select=*`), {
+    let query = `?${teamFilter()}&select=*`;
+    if (table === 'players') {
+      query = `?${teamFilter()}&roster_active=eq.true&select=*`;
+    }
+    const res = await fetch(sbUrl(table, query), {
       headers: sbHeaders(),
     });
     if (!res.ok) throw new Error(`${table} 읽기 실패: ${res.status}`);
@@ -189,6 +196,10 @@
   }
 
   async function sbUpsert(table, rows) {
+    if (!rows || !rows.length) {
+      console.warn(`[club-api] skip ${table} upsert: empty rows (DELETE 방지)`);
+      return;
+    }
     const del = await fetch(sbUrl(table, `?${teamFilter()}`), {
       method: 'DELETE',
       headers: sbHeaders(),
@@ -440,9 +451,26 @@
     if (!res.ok && res.status !== 404) throw new Error(`사진 삭제 실패: ${await res.text()}`);
   }
 
+  async function apiEnsureClubRoster() {
+    const clubId = window.__CLUB__?.id;
+    if (!clubId) return null;
+    if (window.__ensurePlatformSession) await window.__ensurePlatformSession();
+    const res = await fetch(sbUrl('rpc/ensure_club_roster'), {
+      method: 'POST',
+      headers: sbHeaders(),
+      body: JSON.stringify({ p_club_id: clubId }),
+    });
+    const text = await res.text();
+    if (!res.ok) {
+      throw new Error(text || `ensure_club_roster HTTP ${res.status}`);
+    }
+    return text ? JSON.parse(text) : null;
+  }
+
   window.setSyncHandler = setSyncHandler;
   window.apiLoadAll = apiLoadAll;
   window.apiSavePartial = apiSavePartial;
+  window.apiEnsureClubRoster = apiEnsureClubRoster;
   window.apiUploadTeamPhoto = apiUploadTeamPhoto;
   window.apiDeleteTeamPhoto = apiDeleteTeamPhoto;
   window.apiTeamPhotoPublicUrl = apiTeamPhotoPublicUrl;

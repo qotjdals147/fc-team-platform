@@ -1170,12 +1170,20 @@ async function bootstrapApp() {
   setSyncHandler(updateSyncBar);
   try {
     let data = await apiLoadAll();
+    if (isPlatformClub() && !data.players?.length && typeof window.apiEnsureClubRoster === 'function') {
+      try {
+        await window.apiEnsureClubRoster();
+        data = await apiLoadAll(true);
+      } catch (e) {
+        console.warn('[bootstrap] ensure_club_roster:', e);
+      }
+    }
     const remoteEmpty = !data.players?.length && !data.matches?.length && !data.saves?.length;
     data = await maybeMigrateLocal(data);
     applyRemoteData(data);
     if (remoteEmpty && !hasLocalData()) {
       if (!isPlatformClub()) await persistPlayers();
-      await persistField();
+      if (!isPlatformClub()) await persistField();
     }
   } catch (e) {
     console.error(e);
