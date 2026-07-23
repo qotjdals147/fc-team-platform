@@ -91,7 +91,7 @@ async function main() {
     await loadScript('data.js?v=2');
     await loadScript('club-api.js?v=2');
     await loadScript('club-platform.js?v=4');
-    await loadScript('app.js?v=5');
+    await loadScript('app.js?v=6');
   } catch (e) {
     showGate(e.message, '../index.html', '플랫폼으로');
   }

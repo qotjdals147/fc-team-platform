@@ -27,6 +27,23 @@ body.platform-club #app {
   text-decoration: none;
 }
 
+.btn-sync-refresh {
+  pointer-events: auto;
+  margin-right: 6px;
+  padding: 2px 8px;
+  font-size: 16px;
+  line-height: 1.2;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: inherit;
+  cursor: pointer;
+}
+
+.btn-sync-refresh:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 #platformClubBarRole {
   margin-left: auto;
   opacity: 0.85;

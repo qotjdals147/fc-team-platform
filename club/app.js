@@ -1,3 +1,17 @@
+// ── FC 플랫폼: localStorage fc_* 미사용 (P7a · 타 구단 섞임 방지) ──
+function fcLocalSet(key, value) {
+  if (typeof isPlatformClub === 'function' && isPlatformClub()) return;
+  localStorage.setItem(key, value);
+}
+function fcLocalGet(key) {
+  if (typeof isPlatformClub === 'function' && isPlatformClub()) return null;
+  return localStorage.getItem(key);
+}
+function fcLocalRemove(key) {
+  if (typeof isPlatformClub === 'function' && isPlatformClub()) return;
+  localStorage.removeItem(key);
+}
+
 // ── 프레젠테이션 모드 ──
 let presentMode = false;
 let presentScales = { token: 1, bench: 1, avail: 1, quarter: 1, panelLeft: 1.2, panelRight: 1 };
@@ -194,7 +208,7 @@ function submitTreasurerPwChange() {
   }
   if (!newPw) { alert('\uC0C8 \uBE44\uBC00\uBC88\uD638\uB97C \uC785\uB825\uD574\uC8FC\uC138\uC694'); return; }
   if (newPw !== confirm) { alert('\uC0C8 \uBE44\uBC00\uBC88\uD638\uAC00 \uC77C\uCE58\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4'); document.getElementById('trPwConfirm').value = ''; return; }
-  localStorage.setItem('fc_treasurer_pw', newPw);
+  fcLocalSet('fc_treasurer_pw', newPw);
   persistMeta().then(() => {
     closeTreasurerPwChangeModal();
     alert('\uBE44\uBC00\uBC88\uD638\uAC00 \uBCC0\uACBD\uB418\uC5C8\uC2B5\uB2C8\uB2E4 \u2713');
@@ -213,16 +227,16 @@ function syncMetaPasswords(meta) {
   if (isPlatformClub()) return;
   if (!meta) return;
   if (meta.adminPw != null && String(meta.adminPw) !== '') {
-    localStorage.setItem('fc_admin_pw', String(meta.adminPw));
+    fcLocalSet('fc_admin_pw', String(meta.adminPw));
   }
   if (meta.treasurerPw != null && String(meta.treasurerPw) !== '') {
-    localStorage.setItem('fc_treasurer_pw', String(meta.treasurerPw));
+    fcLocalSet('fc_treasurer_pw', String(meta.treasurerPw));
   }
 }
 
 function applyAdminMode() {
   document.body.classList.toggle('is-admin', isAdmin);
-  if (isPlatformClub()) hidePlatformAuthLocks?.();
+  if (isPlatformClub()) hidePlatformClubLegacyUI?.();
   // 관리자 켜질 때 총무 상호 배타 (플랫폼 구단주 owner 는 예외)
   if (isAdmin && isTreasurer && window.__CLUB__?.role !== 'owner') {
     isTreasurer = false;
@@ -297,7 +311,7 @@ function submitPwChange() {
   }
   if (!newPw) { alert('새 비밀번호를 입력해주세요'); return; }
   if (newPw !== confirm) { alert('새 비밀번호가 일치하지 않습니다'); document.getElementById('pwConfirm').value = ''; return; }
-  localStorage.setItem('fc_admin_pw', newPw);
+  fcLocalSet('fc_admin_pw', newPw);
   // Google Sheets에도 동기화 (시트에서 확인 가능)
   persistMeta().then(() => {
     closePwChangeModal();
@@ -310,6 +324,7 @@ function submitPwChange() {
 }
 
 function openWageRatesModal() {
+  if (isPlatformClub()) return;
   closeAdminOptionsModal();
   const grid = document.getElementById('wageRatesGrid');
   if (grid) {
@@ -325,6 +340,7 @@ function closeWageRatesModal() {
   document.getElementById('wageRatesModal')?.classList.remove('open');
 }
 function saveWageRates() {
+  if (isPlatformClub()) return;
   const next = { ...WAGE_DEFAULTS, ...wageRates };
   for (const f of WAGE_FIELDS) {
     const v = parseInt(document.getElementById('wage_' + f.key)?.value, 10);
@@ -398,6 +414,7 @@ const WAGE_FIELDS = [
 const DEF_POSITIONS = new Set(['CB','LB','RB','GK']);
 
 function loadWageRates(meta) {
+  if (isPlatformClub()) { wageRates = { ...WAGE_DEFAULTS }; return; }
   if (!meta?.wageRates) return;
   try { wageRates = { ...WAGE_DEFAULTS, ...(typeof meta.wageRates === 'string' ? JSON.parse(meta.wageRates) : meta.wageRates) }; } catch(e) {}
 }
@@ -581,7 +598,7 @@ function isFormationSelected() {
 function saveFormationLocal(value) {
   if (value && FORMATIONS[value]) {
     cachedFormation = value;
-    localStorage.setItem('fc_formation', value);
+    fcLocalSet('fc_formation', value);
   }
 }
 function inferFormationFromTokens(tokens) {
@@ -603,7 +620,7 @@ function inferFormationFromTokens(tokens) {
 }
 function resolveFormation(remoteFormation, tokens) {
   if (remoteFormation && FORMATIONS[remoteFormation]) return remoteFormation;
-  const local = localStorage.getItem('fc_formation');
+  const local = fcLocalGet('fc_formation');
   if (local && FORMATIONS[local]) return local;
   if (tokens?.length) return inferFormationFromTokens(tokens);
   return '';
@@ -955,8 +972,8 @@ function applyRemoteData(data) {
   matches = normalizeMatchDates(data.matches || []);
   myTeamName = data.meta?.myTeam || '';
   if (!myTeamName && isPlatformClub()) myTeamName = window.__CLUB__?.name || '';
-  if (!myTeamName) myTeamName = localStorage.getItem('fc_myteam') || '';
-  if (myTeamName && !isPlatformClub()) localStorage.setItem('fc_myteam', myTeamName);
+  if (!myTeamName && !isPlatformClub()) myTeamName = fcLocalGet('fc_myteam') || '';
+  if (myTeamName && !isPlatformClub()) fcLocalSet('fc_myteam', myTeamName);
   // 시트에 저장된 비밀번호로 로컬 동기화 (기기 간 비밀번호 통일)
   syncMetaPasswords(data.meta);
   // 총무 데이터 (시트 Date/ISO → YYYY-MM-DD)
@@ -988,8 +1005,8 @@ function applyRemoteData(data) {
     photoUrls = photoUrls.map(u => normalizePhotoUrl(u)).filter(Boolean);
   }
   teamPhotoUrl = photoUrls[0] || '';
-  if (teamPhotoUrl && !isPlatformClub()) localStorage.setItem('fc_team_photo', teamPhotoUrl);
-  if (photoUrls.length && !isPlatformClub()) localStorage.setItem('fc_team_photos', JSON.stringify(photoUrls));
+  if (teamPhotoUrl && !isPlatformClub()) fcLocalSet('fc_team_photo', teamPhotoUrl);
+  if (photoUrls.length && !isPlatformClub()) fcLocalSet('fc_team_photos', JSON.stringify(photoUrls));
   // 슬라이드 간격
   const rawInterval = data.meta?.photoInterval;
   if (rawInterval != null) photoInterval = Math.max(3, Number(rawInterval) || 10);
@@ -1211,11 +1228,14 @@ async function bootstrapApp() {
   applyAdminMode();
   applyTreasurerMode();
   checkNewNoticeAlert();
-  // 30초마다 자동 갱신 시작
-  startPolling();
+  if (isPlatformClub()) {
+    setupPlatformDataSync();
+  } else {
+    startPolling();
+  }
 }
 async function persistPlayers() {
-  localStorage.setItem('fc_players', JSON.stringify(players));
+  fcLocalSet('fc_players', JSON.stringify(players));
   await apiSavePartial({ players });
 }
 async function persistField() {
@@ -1232,9 +1252,9 @@ async function persistField() {
   }
   payload.formation = payload.q1formation || payload.q2formation || '';
   payload.tokens = payload.q1tokens || [];
-  localStorage.setItem('fc_field_quarters', JSON.stringify({quarterData, activeQuarter}));
-  localStorage.setItem('fc_field', JSON.stringify(fieldTokens));
-  localStorage.setItem('fc_field_full', JSON.stringify({formation: payload.formation, tokens: fieldTokens}));
+  fcLocalSet('fc_field_quarters', JSON.stringify({quarterData, activeQuarter}));
+  fcLocalSet('fc_field', JSON.stringify(fieldTokens));
+  fcLocalSet('fc_field_full', JSON.stringify({formation: payload.formation, tokens: fieldTokens}));
   await apiSavePartial({ field: payload });
 }
 async function persistMatches() { await apiSavePartial({ matches }); }
@@ -1244,7 +1264,7 @@ async function persistMeta() {
   const treasurerPw = isPlatformClub() ? undefined : (localStorage.getItem('fc_treasurer_pw') || undefined);
   photoTransforms[currentPhotoIdx] = { ...photoTransform };
   const meta = {
-    myTeam: myTeamName || localStorage.getItem('fc_myteam') || '',
+    myTeam: myTeamName || (isPlatformClub() ? (window.__CLUB__?.name || '') : (localStorage.getItem('fc_myteam') || '')),
     teamPhotoUrl: photoUrls[0] || '',
     teamPhotoUrls: JSON.stringify(photoUrls),
     photoInterval: String(photoInterval),
@@ -1253,16 +1273,16 @@ async function persistMeta() {
     ...(adminPw     ? { adminPw }     : {}),
     ...(treasurerPw ? { treasurerPw } : {}),
     presentScales: JSON.stringify(presentScales),
-    wageRates: JSON.stringify(wageRates),
+    ...(isPlatformClub() ? {} : { wageRates: JSON.stringify(wageRates) }),
   };
   await apiSavePartial({ meta });
-  localStorage.setItem('fc_myteam', myTeamName || '');
-  localStorage.setItem('fc_team_photos', JSON.stringify(photoUrls));
-  localStorage.setItem('fc_photo_transforms', JSON.stringify(photoTransforms));
-  localStorage.setItem('fc_photo_interval', String(photoInterval));
-  if (photoUrls[0]) localStorage.setItem('fc_team_photo', photoUrls[0]);
-  else localStorage.removeItem('fc_team_photo');
-  localStorage.setItem('fc_photo_transform', JSON.stringify(photoTransform));
+  fcLocalSet('fc_myteam', myTeamName || '');
+  fcLocalSet('fc_team_photos', JSON.stringify(photoUrls));
+  fcLocalSet('fc_photo_transforms', JSON.stringify(photoTransforms));
+  fcLocalSet('fc_photo_interval', String(photoInterval));
+  if (photoUrls[0]) fcLocalSet('fc_team_photo', photoUrls[0]);
+  else fcLocalRemove('fc_team_photo');
+  fcLocalSet('fc_photo_transform', JSON.stringify(photoTransform));
 }
 function normalizePhotoUrl(url) {
   if (!url) return '';
@@ -1542,7 +1562,7 @@ function refreshHomeIfVisible() {
 // ── 경기 일정 ──
 async function persistSchedules() {
   await apiSavePartial({ schedules });
-  localStorage.setItem('fc_schedules', JSON.stringify(schedules));
+  fcLocalSet('fc_schedules', JSON.stringify(schedules));
 }
 function openScheduleModal() {
   renderScheduleModalContent();
@@ -1614,11 +1634,11 @@ function deleteSchedule(id) {
 let openNoticeId = null;
 async function persistNotices() {
   await apiSavePartial({ notices });
-  localStorage.setItem('fc_notices', JSON.stringify(notices));
+  fcLocalSet('fc_notices', JSON.stringify(notices));
 }
 function openNoticeModal() {
   const today = new Date().toISOString().slice(0, 10);
-  localStorage.setItem('fc_notice_opened_date', today);
+  fcLocalSet('fc_notice_opened_date', today);
   renderNoticeModalContent();
   document.getElementById('noticeModal').classList.add('open');
 }
@@ -1704,7 +1724,7 @@ function deleteNotice(id) {
 function checkNewNoticeAlert() {
   if (isAdmin) return;
   const today = new Date().toISOString().slice(0, 10);
-  if (localStorage.getItem('fc_notice_opened_date') === today) return;
+  if (fcLocalGet('fc_notice_opened_date') === today) return;
   const count = notices.filter(n => normalizeDate(n.date) === today).length;
   if (count > 0) {
     alert(`\uC624\uB298 \uC0C8 \uAE00\uC774 ${count}\uAC74 \uC788\uC2B5\uB2C8\uB2E4.\n\u300C\uD68C\uCE59 \uBC0F \uC0AC\uC774\uD2B8 \uC18C\uAC1C\u300D\uC5D0\uC11C \uD655\uC778\uD574 \uC8FC\uC138\uC694.`);
@@ -1852,6 +1872,10 @@ async function clearTeamPhoto() {
   }
 }
 function editTeamName() {
+  if (isPlatformClub()) {
+    alert('팀 이름은 플랫폼 로비에서 구단 설정으로 변경합니다.');
+    return;
+  }
   const name = prompt('팀 이름', myTeamName || '우리 FC');
   if (name === null) return;
   const newName = name.trim() || '우리 FC';
@@ -3307,7 +3331,7 @@ function updateAvailBtn() {
 function loadFieldState(){
   const migrateTokenPos = t => ({...t, pos: migratePos(t.pos || '')});
   // 1. 쿼터 형식 우선 시도
-  const qRaw = localStorage.getItem('fc_field_quarters');
+  const qRaw = fcLocalGet('fc_field_quarters');
   if (qRaw) {
     try {
       const o = JSON.parse(qRaw);
@@ -3333,7 +3357,7 @@ function loadFieldState(){
     } catch (e) { /* fall through */ }
   }
   // 2. 구 형식 fc_field_full
-  const full = localStorage.getItem('fc_field_full');
+  const full = fcLocalGet('fc_field_full');
   if (full) {
     try {
       const o = JSON.parse(full);
@@ -3347,10 +3371,10 @@ function loadFieldState(){
     } catch (e) { /* fall through */ }
   }
   // 3. 구 형식 fc_field
-  const s = localStorage.getItem('fc_field');
+  const s = fcLocalGet('fc_field');
   if (!s) return;
   fieldTokens = normalizeFieldTokens(JSON.parse(s)).map(migrateTokenPos);
-  const formation = resolveFormation(localStorage.getItem('fc_formation'), fieldTokens);
+  const formation = resolveFormation(fcLocalGet('fc_formation'), fieldTokens);
   if (formation) { saveFormationLocal(formation); setFormationSelect(formation); }
   if (formation) reconcileFieldTokensToFormation();
   quarterData[1] = { formation: getFormation(), tokens: JSON.parse(JSON.stringify(fieldTokens)) };
@@ -4113,7 +4137,45 @@ async function pollRefresh() {
 }
 
 function startPolling() {
+  if (typeof isPlatformClub === 'function' && isPlatformClub()) return;
   setInterval(pollRefresh, POLL_INTERVAL);
+}
+
+/** P7c — 플랫폼: 30초 poll 대신 저장=persist* · 수동/탭복귀 갱신 */
+function setupPlatformDataSync() {
+  setupPlatformSyncRefreshButton();
+  if (window.__platformVisibilityBound) return;
+  window.__platformVisibilityBound = true;
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') platformManualRefresh();
+  });
+}
+
+function setupPlatformSyncRefreshButton() {
+  if (document.getElementById('platformSyncRefreshBtn')) return;
+  const actions = document.querySelector('.sync-bar-actions');
+  if (!actions) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'platformSyncRefreshBtn';
+  btn.className = 'btn-sync-refresh';
+  btn.title = '서버에서 다시 불러오기';
+  btn.textContent = '\u21BB';
+  btn.onclick = () => platformManualRefresh();
+  actions.insertBefore(btn, actions.firstChild);
+}
+
+async function platformManualRefresh() {
+  if (isAnyModalOpen() || drag.active) return;
+  try {
+    updateSyncBar('loading', '불러오는 중...');
+    const data = await apiLoadAll(true);
+    applyRemoteData(data);
+    refreshCurrentTab();
+    updateSyncBar('ok', '동기화됨');
+  } catch (e) {
+    updateSyncBar('error', '불러오기 실패');
+  }
 }
 
 // ════════════════════════════════════════════════════════
@@ -4170,15 +4232,15 @@ function cleanupTreasurerData() {
 }
 
 // persist 함수
-async function persistDues()        { await apiSavePartial({ dues });        localStorage.setItem('fc_dues',        JSON.stringify(dues));        }
+async function persistDues()        { await apiSavePartial({ dues });        fcLocalSet('fc_dues',        JSON.stringify(dues));        }
 
 function nextDueId() {
   const max = dues.reduce((m, d) => Math.max(m, Math.floor(Number(d.id)) || 0), 0);
   return max + 1;
 }
-async function persistExpenses()    { await apiSavePartial({ expenses });    localStorage.setItem('fc_expenses',    JSON.stringify(expenses));    }
-async function persistSettlements() { await apiSavePartial({ settlements }); localStorage.setItem('fc_settlements', JSON.stringify(settlements)); }
-async function persistDisciplines() { await apiSavePartial({ disciplines }); localStorage.setItem('fc_disciplines', JSON.stringify(disciplines)); }
+async function persistExpenses()    { await apiSavePartial({ expenses });    fcLocalSet('fc_expenses',    JSON.stringify(expenses));    }
+async function persistSettlements() { await apiSavePartial({ settlements }); fcLocalSet('fc_settlements', JSON.stringify(settlements)); }
+async function persistDisciplines() { await apiSavePartial({ disciplines }); fcLocalSet('fc_disciplines', JSON.stringify(disciplines)); }
 
 // 미정산 리워드 (경기 수당 − 미반영 징계, 최소 0)
 function computeUnsettledWage(pid, from, to) {
@@ -4226,11 +4288,11 @@ function filterExpensesByMonth(list, ym) {
 
 async function persistDueExemptions() {
   await apiSavePartial({ dueExemptions });
-  localStorage.setItem('fc_due_exemptions', JSON.stringify(dueExemptions));
+  fcLocalSet('fc_due_exemptions', JSON.stringify(dueExemptions));
 }
 async function persistDueMemos() {
   await apiSavePartial({ dueMemos });
-  localStorage.setItem('fc_due_memos', JSON.stringify(dueMemos));
+  fcLocalSet('fc_due_memos', JSON.stringify(dueMemos));
 }
 
 function editDueMemo(pid) {
