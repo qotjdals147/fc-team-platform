@@ -378,6 +378,19 @@ function renderNotificationPanel() {
 
 
 
+/** 헤더 🔔 — #main 밖이라 renderMain과 무관 · 리스너 1회만 (중복 토글 버그 방지) */
+function bindNotificationShellOnce() {
+  const bell = $('#notifBell');
+  if (!bell || bell.dataset.notifBound === '1') return;
+  bell.dataset.notifBound = '1';
+  bell.addEventListener('click', () => {
+    panelOpen = !panelOpen;
+    mountNotificationUI();
+  });
+}
+
+
+
 function escapeHtml(s) {
 
   return String(s || '')
@@ -420,15 +433,8 @@ function mountNotificationUI() {
 
   updateBadge();
 
-
-
-  $('#notifBell')?.addEventListener('click', () => {
-
-    panelOpen = !panelOpen;
-
-    mountNotificationUI();
-
-  });
+  const bell = $('#notifBell');
+  if (bell) bell.setAttribute('aria-expanded', panelOpen ? 'true' : 'false');
 
   $('#notifClose')?.addEventListener('click', () => {
 
@@ -2661,11 +2667,15 @@ async function init() {
 
     if (panelOpen) mountNotificationUI();
 
-    renderMain();
+    if (activeTab === 'home' || activeTab === 'clubs' || activeTab === 'profile') {
+      renderMain();
+    }
 
   });
 
 
+
+  bindNotificationShellOnce();
 
   const health = await apiHealth();
 

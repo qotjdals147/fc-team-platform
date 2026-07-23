@@ -88,7 +88,7 @@ async function main() {
   if (barName) barName.textContent = club.name;
 
   try {
-    await loadScript('data.js?v=1');
+    await loadScript('data.js?v=2');
     await loadScript('club-api.js?v=2');
     await loadScript('club-platform.js?v=4');
     await loadScript('app.js?v=5');

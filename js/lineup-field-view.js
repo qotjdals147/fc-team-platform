@@ -3,7 +3,7 @@
  */
 
 import { apiLoadClubPlayers } from './api.js';
-import { FORMATIONS, FORMATION_POS_LABELS, SLOT_LABEL_MATCH } from './formations-data.js';
+import { FORMATIONS, FORMATION_POS_LABELS, SLOT_LABEL_MATCH } from './formations-data.js?v=2';
 
 const POS_BG = {
   GK: '#b8860b',
